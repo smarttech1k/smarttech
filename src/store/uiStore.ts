@@ -21,6 +21,16 @@ interface UIState {
   // Content
   recentPosts: any[];
   addRecentPost: (post: any) => void;
+
+  // Cart
+  cart: any[];
+  addToCart: (item: any) => void;
+  removeFromCart: (itemId: string) => void;
+  clearCart: () => void;
+
+  // Enrolled Courses
+  enrolledCourses: string[];
+  enrollInCourses: (courseIds: string[]) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -45,5 +55,25 @@ export const useUIStore = create<UIState>((set) => ({
   recentPosts: [],
   addRecentPost: (post) => set((state) => ({ 
     recentPosts: [post, ...state.recentPosts] 
+  })),
+
+  // Cart
+  cart: [],
+  addToCart: (item) => set((state) => {
+    // Avoid duplicates
+    if (state.cart.some(i => i.id === item.id)) {
+      return {};
+    }
+    return { cart: [...state.cart, item] };
+  }),
+  removeFromCart: (itemId) => set((state) => ({
+    cart: state.cart.filter(i => i.id !== itemId)
+  })),
+  clearCart: () => set({ cart: [] }),
+
+  // Enrolled Courses (unlocked on checkout)
+  enrolledCourses: [],
+  enrollInCourses: (courseIds) => set((state) => ({
+    enrolledCourses: Array.from(new Set([...state.enrolledCourses, ...courseIds]))
   })),
 }));

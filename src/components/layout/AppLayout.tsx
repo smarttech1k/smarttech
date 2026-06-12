@@ -27,6 +27,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const isAssistant = path === 'assistant';
   const isMessages = path === 'messages';
 
+  const isWidePage = ['home', 'explore', 'learn', 'analytics'].includes(path);
+  const containerClass = (isSparks || isAssistant || isMessages) 
+    ? 'max-w-none p-0 h-full w-full' 
+    : isWidePage 
+      ? 'max-w-7xl mx-auto p-5 sm:p-8 lg:p-14 w-full' 
+      : 'max-w-4xl mx-auto p-5 sm:p-8 lg:p-14 w-full';
+
   return (
     <div className="h-screen bg-sun-bg text-sun-text-main flex flex-col font-sans overflow-hidden noise-overlay">
       <motion.div
@@ -41,7 +48,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <Sidebar onSignOut={onSignOut} />
         
         <main className={`flex-1 w-full lg:ml-20 overflow-y-auto overflow-x-hidden scrollbar-hide border-x border-sun-border/30 transition-all duration-300 ${(isSparks || isAssistant || isMessages) ? 'pb-0' : 'pb-20 md:pb-12'}`}>
-          <div className={`${(isSparks || isAssistant || isMessages) ? 'max-w-none p-0 h-full' : 'max-w-4xl mx-auto p-5 sm:p-8 lg:p-14'}`}>
+          <div className={containerClass}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

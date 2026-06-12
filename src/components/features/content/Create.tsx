@@ -269,10 +269,10 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
           <div>
             <div className="flex items-center gap-2 mb-0.5">
                <div className="w-1.5 h-1.5 rounded-full bg-sun-primary animate-pulse"></div>
-               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-sun-primary">New Post</p>
+               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-sun-primary">Express Yourself</p>
             </div>
             <h1 className="text-2xl md:text-4xl font-display font-black tracking-tighter uppercase italic leading-none">
-               Create <span className="text-sun-primary">Content</span>
+               Create <span className="text-sun-primary">Post</span>
             </h1>
           </div>
         </div>
@@ -287,8 +287,8 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
           
           <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">
             <Save size={16} className="text-sun-primary" />
-            <span className="hidden md:inline">Save Draft</span>
-            <span className="md:hidden">Draft</span>
+            <span className="hidden md:inline">Save for Later</span>
+            <span className="md:hidden">Later</span>
           </button>
           
           <button 
@@ -299,12 +299,12 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
              {isSaving ? (
                 <>
                   <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  <span>Publishing...</span>
+                  <span>Sharing...</span>
                 </>
              ) : (
                 <>
                   <Zap size={16} />
-                  <span>Share Post</span>
+                  <span>Post Now</span>
                 </>
              )}
           </button>
@@ -395,8 +395,8 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                           <Upload size={28} />
                         </div>
                         <div className="text-center">
-                          <p className="font-bold text-lg">Click to upload {postType === 'photo' ? 'photos' : 'video'}</p>
-                          <p className="text-xs text-sun-text-muted">or drag and drop files here</p>
+                          <p className="font-bold text-lg">Add {postType === 'photo' ? 'photos' : 'videos'}</p>
+                          <p className="text-xs text-sun-text-muted">or just drag and drop them here</p>
                         </div>
                       </>
                     )}
@@ -411,7 +411,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                     <Avatar size="md" src="https://i.pravatar.cc/150?u=me" className="ring-2 ring-sun-primary/20" />
                     <div>
                       <h4 className="text-sm font-bold">@creative_learner</h4>
-                      <p className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">Expert Creator</p>
+                      <p className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">Sharing my vibe</p>
                     </div>
                   </div>
 
@@ -419,7 +419,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                     <textarea 
                       value={post.caption}
                       onChange={(e) => setPost(p => ({ ...p, caption: e.target.value }))}
-                      placeholder={postType === 'text' ? "What's on your mind? Share your expertise with the world..." : "Add a brilliant caption to your media..."}
+                      placeholder={postType === 'text' ? "What's on your mind today? Write something beautiful..." : "Say something about this..."}
                       className={`w-full bg-transparent border-none focus:ring-0 resize-none transition-all duration-300 placeholder:text-sun-text-muted/40 font-medium
                         ${postType === 'text' ? 'min-h-[250px] text-xl md:text-2xl leading-relaxed' : 'min-h-[120px] text-sm md:text-base'}
                       `}
@@ -457,25 +457,23 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                       <div className="p-2.5 bg-sun-primary/10 rounded-xl text-sun-primary">
                         <LinkIcon size={18} />
                       </div>
-                      <h4 className="text-sm font-bold">Attached Course</h4>
+                      <h4 className="text-sm font-bold">Add a Link</h4>
                     </div>
                     <Badge variant="secondary">Optional</Badge>
                   </div>
                   <input 
                     type="text" 
-                    placeholder="Link your course or product..." 
+                    placeholder="Paste a link to share..." 
                     className="w-full bg-sun-bg border border-sun-border rounded-xl p-3 text-xs focus:ring-1 focus:ring-sun-primary outline-none transition-all"
                   />
-                  <p className="text-[10px] text-sun-text-muted leading-relaxed">Drives 40% more conversion when linked directly to content.</p>
-                </div>
-
-                <div className="p-6 bg-sun-surface rounded-[2rem] border border-sun-border space-y-4 group hover:border-sun-primary/30 transition-all">
+                  <p className="text-[10px] text-sun-text-muted leading-relaxed">Share website, music, video or blog post link with friends.</p>
+                </div>                <div className="p-6 bg-sun-surface rounded-[2rem] border border-sun-border space-y-4 group hover:border-sun-primary/30 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2.5 bg-sun-secondary/10 rounded-xl text-sun-secondary">
                         <Users size={18} />
                       </div>
-                      <h4 className="text-sm font-bold">Collaborators</h4>
+                      <h4 className="text-sm font-bold">Tag Friends</h4>
                     </div>
                     <button className="p-1 px-2.5 bg-sun-secondary/10 text-sun-secondary rounded-lg text-[10px] font-bold hover:bg-sun-secondary/20 line-none">Tag</button>
                   </div>
@@ -489,7 +487,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                       +0
                     </div>
                   </div>
-                  <p className="text-[10px] text-sun-text-muted leading-relaxed">Content will appear on both profiles and reach shared networks.</p>
+                  <p className="text-[10px] text-sun-text-muted leading-relaxed">This post will show up on their profiles too!</p>
                 </div>
               </div>
             </div>
@@ -499,7 +497,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
               <div className="glass-card rounded-[2.5rem] p-8 border-sun-border/30 space-y-8">
                 {/* Audience Section */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-sun-text-muted">Visibility Settings</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-sun-text-muted">Who should see this?</h4>
                   <div className="space-y-2">
                     {(['public', 'followers', 'private'] as Audience[]).map((abs) => (
                       <button
@@ -507,11 +505,11 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                         onClick={() => setPost(p => ({ ...p, audience: abs }))}
                         className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${post.audience === abs ? 'bg-sun-primary/10 border-sun-primary text-sun-primary' : 'bg-sun-bg/50 border-sun-border/50 text-sun-text-muted hover:border-sun-primary/30'}`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 font-bold text-sm">
                           {abs === 'public' && <Globe size={16} />}
                           {abs === 'followers' && <Users size={16} />}
                           {abs === 'private' && <Lock size={16} />}
-                          <span className="text-sm font-bold capitalize">{abs}</span>
+                          <span className="capitalize">{abs === 'public' ? 'Everyone' : abs === 'followers' ? 'Followers' : 'Just Me'}</span>
                         </div>
                         {post.audience === abs && <CheckCircle2 size={16} />}
                       </button>
@@ -522,10 +520,10 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                 {/* Scheduling Section */}
                 <div className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-sun-text-muted">Schedule Post</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-sun-text-muted">Post later?</h4>
                     <button 
                       onClick={() => setPost(p => ({ ...p, isScheduled: !p.isScheduled }))}
-                      className={`w-10 h-5 rounded-full relative transition-all duration-300 ${post.isScheduled ? 'bg-sun-primary' : 'bg-sun-border'}`}
+                      className={`w-10 h-5 rounded-full relative transition-all duration-300 ${post.isScheduled ? 'bg-purple-600 shadow-[0_0_10px_rgba(147,51,234,0.5)]' : 'bg-sun-border'}`}
                     >
                       <motion.div 
                         animate={{ x: post.isScheduled ? 22 : 2 }}
@@ -547,7 +545,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                     <ShieldCheck size={18} className="text-blue-500" />
                     <div>
                       <h5 className="text-[11px] font-bold">Paid Partnership</h5>
-                      <p className="text-[8px] text-sun-text-muted uppercase font-black">SPONSORED TAG</p>
+                      <p className="text-[8px] text-sun-text-muted uppercase font-black">SPONSOR TAG</p>
                     </div>
                   </div>
                    <button 
@@ -565,11 +563,11 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                 <div className="flex flex-col gap-3 pt-6 border-t border-sun-border/30">
                   <Button variant="outline" className="w-full !rounded-2xl flex items-center justify-center gap-2">
                     <Save size={16} />
-                    Save to Drafts
+                    Save for Later
                   </Button>
                   <Button className="w-full !rounded-2xl h-14 text-base shadow-xl shadow-sun-primary/20 flex items-center justify-center gap-2" onClick={handlePublish}>
                     <Zap size={20} />
-                    Publish Wisdom
+                    Post Now
                   </Button>
                 </div>
               </div>
@@ -598,28 +596,28 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
             </div>
             
             <div className="space-y-4">
-              <h2 className="text-4xl font-display font-bold">Node Published!</h2>
-              <p className="text-sun-text-muted text-lg max-w-sm mx-auto">Your post is now live and sharing your expertise with the community.</p>
+              <h2 className="text-4xl font-display font-bold">Post Shared!</h2>
+              <p className="text-sun-text-muted text-lg max-w-sm mx-auto">Your post is now live on your profile and visible to your followers.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-12">
               <Button onClick={() => navigate('/home')} className="!rounded-2xl h-14 text-sm font-bold shadow-xl shadow-sun-primary/10">
-                Go to Home
+                Go to Feed
               </Button>
               <Button variant="secondary" onClick={() => { setStep('drafting'); setPost({ ...post, caption: '', files: [], video: null }); }} className="!rounded-2xl h-14 text-sm font-bold">
-                Create Another
+                Share Something Else
               </Button>
             </div>
 
             <div className="mt-12 flex items-center justify-center gap-8 text-sun-text-muted">
               <div className="text-center">
                 <p className="text-xl font-bold text-sun-text-main">342</p>
-                <p className="text-[10px] uppercase font-black tracking-widest">Early Reached</p>
+                <p className="text-[10px] uppercase font-black tracking-widest">People Reached</p>
               </div>
               <div className="w-px h-6 bg-sun-border" />
               <div className="text-center">
                 <p className="text-xl font-bold text-sun-text-main">18</p>
-                <p className="text-[10px] uppercase font-black tracking-widest">Nodes Notified</p>
+                <p className="text-[10px] uppercase font-black tracking-widest">Friends Notified</p>
               </div>
             </div>
           </motion.div>

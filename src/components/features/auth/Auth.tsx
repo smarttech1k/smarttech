@@ -27,6 +27,14 @@ export const AuthUI = ({
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme, setAuthenticated, setShowAuthModal } = useUIStore();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Sync state with prop if it changes
   useEffect(() => {
@@ -58,41 +66,114 @@ export const AuthUI = ({
 
   return (
     <div className={containerClasses}>
-      <button 
-        onClick={toggleTheme}
-        className="fixed top-6 right-6 md:top-12 md:right-12 z-[1100] p-4 bg-sun-surface border border-sun-border rounded-2xl text-sun-text-main shadow-xl hover:scale-110 transition-all active:scale-95"
-        title="Toggle Theme"
-      >
-        {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
-      </button>
-      {isModal && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 backdrop-blur-xl"
-          onClick={onClose}
-        />
-      )}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-sun-primary/5 rounded-full blur-[120px]"></div>
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-sun-secondary/5 rounded-full blur-[120px]"></div>
-      </div>
-
-      <motion.div 
-        layout
-        className={`w-full relative z-10 my-auto ${view === 'welcome' ? 'max-w-4xl' : 'max-w-md'}`}
-      >
-        {/* Logo Section - Only show when not in welcome view or when in modal */}
-        {(view !== 'welcome' || isModal) && (
-          <div className="flex flex-col items-center mb-10">
-            <div className="bg-sun-primary p-3 rounded-[2rem] rotate-12 mb-4 shadow-xl shadow-sun-primary/20 flex items-center justify-center">
-              <KorusaIcon size={32} variant="dark" />
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <motion.div
+            key="splash-loader"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.45, ease: "easeInOut" }}
+            className="fixed inset-0 z-[1200] bg-sun-bg flex flex-col items-center justify-between py-16 px-6"
+          >
+            {/* Ambient Background Glows */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-sun-primary/10 rounded-full blur-[120px]" />
+              <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-sun-secondary/10 rounded-full blur-[120px]" />
             </div>
-            <h1 className="font-display font-bold text-3xl tracking-tight uppercase">Korusa</h1>
-            <p className="text-sun-text-muted text-sm mt-2 font-medium">Wisdom, shared & scaled.</p>
-          </div>
-        )}
+
+            {/* Empty top block for alignment */}
+            <div className="h-12 w-full" />
+
+            {/* Central Instagram-style App Logo & Micro-spinner */}
+            <div className="flex flex-col items-center gap-6 relative z-10">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: [0.8, 1.05, 1], opacity: 1 }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+                className="w-20 h-20 bg-sun-primary text-black rounded-[2rem] flex items-center justify-center shadow-2xl shadow-sun-primary/30 border border-sun-primary/20 rotate-12"
+              >
+                <div className="-rotate-12">
+                  <KorusaIcon size={40} variant="dark" />
+                </div>
+              </motion.div>
+              
+              <motion.h2 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15, duration: 0.4 }}
+                className="font-display font-black text-3xl tracking-tighter uppercase text-sun-text-main"
+              >
+                Korusa
+              </motion.h2>
+
+              {/* Seamless Custom Ring Loader */}
+              <div className="relative w-6 h-6 mt-4">
+                <div className="absolute inset-0 border-2 border-sun-border/20 rounded-full" />
+                <motion.div 
+                  className="absolute inset-0 border-2 border-sun-primary border-t-transparent rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+                />
+              </div>
+            </div>
+
+            {/* Aesthetic Branding Footer like "from Meta" */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="relative z-10 flex flex-col items-center gap-1.5 text-center"
+            >
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-sun-text-muted">WISDOM LABS</span>
+              <div className="flex items-center gap-1 text-[11px] font-medium text-sun-text-muted">
+                <span>from the</span>
+                <span className="text-sun-primary font-black tracking-wider uppercase text-[10px]">Elite Network</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="auth-loaded-wrapper"
+            initial={{ opacity: 0, scale: 0.99 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="w-full flex-1 flex flex-col items-center justify-center"
+          >
+            <button 
+              onClick={toggleTheme}
+              className="fixed top-6 right-6 md:top-12 md:right-12 z-[1100] p-4 bg-sun-surface border border-sun-border rounded-2xl text-sun-text-main shadow-xl hover:scale-110 transition-all active:scale-95"
+              title="Toggle Theme"
+            >
+              {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
+            </button>
+            {isModal && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 backdrop-blur-xl"
+                onClick={onClose}
+              />
+            )}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-sun-primary/5 rounded-full blur-[120px]"></div>
+              <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-sun-secondary/5 rounded-full blur-[120px]"></div>
+            </div>
+
+            <motion.div 
+              layout
+              className={`w-full relative z-10 my-auto ${view === 'welcome' ? 'max-w-4xl' : 'max-w-md'}`}
+            >
+              {/* Logo Section - Only show when not in welcome view or when in modal */}
+              {(view !== 'welcome' || isModal) && (
+                <div className="flex flex-col items-center mb-10">
+                  <div className="bg-sun-primary p-3 rounded-[2rem] rotate-12 mb-4 shadow-xl shadow-sun-primary/20 flex items-center justify-center">
+                    <KorusaIcon size={32} variant="dark" />
+                  </div>
+                  <h1 className="font-display font-bold text-3xl tracking-tight uppercase">Korusa</h1>
+                  <p className="text-sun-text-muted text-sm mt-2 font-medium">Wisdom, shared & scaled.</p>
+                </div>
+              )}
 
         <AnimatePresence mode="wait">
           {view === 'welcome' && (
@@ -539,6 +620,9 @@ export const AuthUI = ({
           )}
         </AnimatePresence>
       </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
