@@ -2,29 +2,29 @@
 @import "tailwindcss";
 
 :root {
-  --sun-bg: #FFFFFF;
-  --sun-surface: #F8F8F8;
-  --sun-surface-light: #FFFFFF;
-  --sun-border: #E8E8E8;
-  --sun-text-main: #000000;
-  --sun-text-muted: #666666;
-  --sun-primary: #FFB800;
-  --sun-secondary: #FF8A00;
-  --sun-accent: #000000;
+  --sun-bg: #F8FAFC;
+  --sun-surface: #FFFFFF;
+  --sun-surface-light: #F8FAFC;
+  --sun-border: #E5E7EB;
+  --sun-text-main: #111827;
+  --sun-text-muted: #4B5563;
+  --sun-primary: #6D28D9;
+  --sun-secondary: #8B5CF6;
+  --sun-accent: #A78BFA;
 }
 
 .dark {
-  --sun-bg: #050505;
-  --sun-surface: #0F0F0F;
-  --sun-surface-light: #161616;
-  --sun-border: #1F1F1F;
-  --sun-text-main: #FFFFFF;
-  --sun-text-muted: #888888;
+  --sun-bg: #111827;
+  --sun-surface: #1F2937;
+  --sun-surface-light: #111827;
+  --sun-border: #374151;
+  --sun-text-main: #F9FAFB;
+  --sun-text-muted: #9CA3AF;
 }
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", sans-serif;
+  --font-display: "Inter", sans-serif;
 
   --color-sun-primary: var(--sun-primary);
   --color-sun-secondary: var(--sun-secondary);
@@ -35,14 +35,14 @@
   --color-sun-text-main: var(--sun-text-main);
   --color-sun-text-muted: var(--sun-text-muted);
   
-  --shadow-sun-glow: 0 0 20px rgba(255, 184, 0, 0.15);
-  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.1), 0 1px 1px rgba(0, 0, 0, 0.05);
+  --shadow-sun-glow: 0 0 20px rgba(109, 40, 217, 0.15);
+  --shadow-premium: 0 10px 30px -10px rgba(109, 40, 217, 0.1), 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
 @layer base {
   /* Prevent unwanted horizontal scrolling and make default scrollbars cleaner */
 body {
-  @apply bg-sun-bg text-sun-text-main font-sans antialiased transition-colors duration-500 selection:bg-sun-primary selection:text-black overflow-x-hidden;
+  @apply bg-sun-bg text-sun-text-main font-sans antialiased transition-colors duration-500 selection:bg-sun-primary selection:text-white overflow-x-hidden;
   width: 100%;
   position: relative;
   scrollbar-gutter: stable;

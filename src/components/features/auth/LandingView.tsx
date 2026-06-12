@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Chrome, Apple, Sun } from 'lucide-react';
 import { useUIStore } from '../../../store/uiStore';
+import { KorusaLogo } from '../../shared/Logo';
 
 // --- Reusable Components ---
 
@@ -122,7 +123,7 @@ const Footer = () => (
         <a href="#" className="hover:text-sun-primary transition-colors">Community</a>
         <a href="#" className="hover:text-sun-primary transition-colors">Support</a>
       </div>
-      <p className="text-sun-text-muted/50 text-[10px] font-black uppercase tracking-[0.1em]">© 2026 Sun Smart Technology • All Rights Reserved</p>
+      <p className="text-sun-text-muted/50 text-[10px] font-black uppercase tracking-[0.1em]">© 2026 Korusa • All Rights Reserved</p>
     </div>
   </footer>
 );
@@ -147,11 +148,8 @@ export const LandingView = () => {
       
       {/* Sticky Header */}
       <nav className="fixed top-0 inset-x-0 z-[100] h-20 backdrop-blur-xl border-b border-sun-border/20 px-6 lg:px-12 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sun-primary rounded-xl rotate-12 flex items-center justify-center shadow-lg shadow-sun-primary/20">
-            <Sun size={20} className="text-black fill-current" />
-          </div>
-          <h1 className="text-lg font-display font-black tracking-tighter uppercase text-sun-text-main hidden sm:block">Sun Smart</h1>
+        <div>
+          <KorusaLogo size={24} textClassName="text-lg sm:text-xl" />
         </div>
         
         <div className="flex items-center gap-6">

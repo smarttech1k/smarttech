@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Avatar } from '../ui/Avatar';
 import { useUIStore } from '../../store/uiStore';
+import { KorusaLogo } from '../shared/Logo';
 
 export const Navbar = () => {
   const navigate = useNavigate();
@@ -25,17 +26,8 @@ export const Navbar = () => {
           <Menu size={20} />
         </motion.button>
 
-        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => navigate('/home')}>
-          <motion.div 
-            whileHover={{ rotate: 192 }}
-            transition={{ type: "spring", stiffness: 200 }}
-            className="bg-sun-primary p-1.5 rounded-xl rotate-12"
-          >
-            <Sun size={20} className="text-black fill-current" />
-          </motion.div>
-          <span className="font-display font-bold text-xl tracking-tight hidden sm:block group-hover:text-sun-primary transition-colors">
-            SUN SMART
-          </span>
+        <div className="group cursor-pointer" onClick={() => navigate('/home')}>
+          <KorusaLogo size={20} textClassName="text-lg lg:text-xl" />
         </div>
       </div>
 
@@ -56,7 +48,7 @@ export const Navbar = () => {
           className="p-3 text-sun-text-main rounded-2xl transition-all"
           title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
         >
-          {isDarkMode ? <Sun size={22} className="text-sun-primary shadow-[0_0_15px_rgba(234,179,8,0.3)]" /> : <Moon size={22} />}
+          {isDarkMode ? <Sun size={22} className="text-sun-primary shadow-[0_0_15px_rgba(109,40,217,0.3)]" /> : <Moon size={22} />}
         </motion.button>
 
         <motion.button 

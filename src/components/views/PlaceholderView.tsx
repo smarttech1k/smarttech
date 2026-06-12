@@ -22,7 +22,7 @@ export const PlaceholderView = ({ title }: { title: string }) => {
           </div>
           <h1 className="text-4xl font-display font-black text-sun-text-main uppercase tracking-tighter">{title}</h1>
           <p className="text-sun-text-muted font-medium leading-relaxed">
-            This section of the Sun Smart ecosystem is currently being synchronized. We're building something extraordinary here.
+            This section of the Korusa ecosystem is currently being synchronized. We're building something extraordinary here.
           </p>
         </div>
 

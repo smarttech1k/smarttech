@@ -91,16 +91,16 @@ interface ChatListItemProps {
 const ChatListItem: React.FC<ChatListItemProps> = ({ chat, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all mb-1 text-left border ${
+    className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all mb-1 text-left border ${
       active 
-        ? 'bg-sun-text-main/5 border-sun-border shadow-lg' 
+        ? 'bg-sun-primary/10 border-sun-primary/25 shadow-sm' 
         : 'hover:bg-sun-text-main/[0.02] border-transparent'
     }`}
   >
     <div className="relative shrink-0">
       <Avatar src={chat.user.avatar} size="md" className="ring-1 ring-sun-border" />
       {chat.user.online && (
-        <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-sun-primary rounded-full border-2 border-sun-bg shadow-[0_0_10px_rgba(255,184,0,0.5)]" />
+        <div className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-sun-primary rounded-full border-2 border-sun-bg shadow-[0_0_10px_rgba(109,40,217,0.5)]" />
       )}
     </div>
     <div className="flex-1 min-w-0">
@@ -111,11 +111,11 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ chat, active, onClick }) =>
         <span className="text-[10px] font-black text-sun-text-muted opacity-40 whitespace-nowrap ml-2 uppercase tracking-widest">{chat.lastMessageTime}</span>
       </div>
       <div className="flex items-center justify-between gap-3">
-        <p className={`text-[13px] truncate leading-tight ${chat.unreadCount > 0 ? 'text-sun-text-main font-bold' : 'text-sun-text-muted opacity-60 font-medium'}`}>
+        <p className={`text-[13px] truncate leading-tight ${chat.unreadCount > 0 ? 'text-sun-primary font-bold' : 'text-sun-text-muted opacity-60 font-medium'}`}>
           {chat.lastMessage}
         </p>
         {chat.unreadCount > 0 && (
-          <div className="bg-sun-primary w-2.5 h-2.5 rounded-full shrink-0 shadow-[0_0_8px_rgba(255,184,0,0.6)]" />
+          <div className="bg-sun-accent w-2.5 h-2.5 rounded-full shrink-0 shadow-[0_0_8px_rgba(167,139,250,0.6)]" />
         )}
       </div>
     </div>
@@ -151,10 +151,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isFirst, isLast }) =
       <div 
         style={borderRadius}
         className={`
-          max-w-[85%] sm:max-w-[70%] px-5 py-3 text-[15px] leading-[1.5] shadow-sm relative transition-all duration-300
+          max-w-[85%] sm:max-w-[70%] px-5 py-3 text-[14px] leading-[1.6] shadow-sm relative transition-all duration-300
           ${isMe 
-            ? 'bg-sun-primary text-black font-semibold' 
-            : 'bg-sun-surface text-sun-text-main border border-sun-border'}
+            ? 'bg-gradient-to-r from-sun-primary to-sun-secondary text-white font-medium shadow-md shadow-sun-primary/10' 
+            : 'bg-slate-100 dark:bg-slate-850 text-sun-text-main border-none'}
         `}
       >
         {!isMe && isFirst && (
@@ -224,14 +224,14 @@ export const MessagesView = () => {
                   <ChevronLeft size={20} />
                 </button>
                 <div className="flex flex-col">
-                  <h1 className="text-xl sm:text-2xl font-black tracking-tighter uppercase italic line-clamp-1">
-                    Connect<span className="text-sun-primary">.</span>
+                  <h1 className="text-lg sm:text-xl font-bold tracking-tight text-sun-text-main">
+                    Korusa <span className="text-sun-primary font-normal">Messenger</span>
                   </h1>
-                  <span className="text-[8px] sm:text-[9px] font-black text-sun-text-muted uppercase tracking-[0.3em] opacity-40">Pulse Network</span>
+                  <span className="text-[8px] font-black text-sun-text-muted uppercase tracking-[0.2em] opacity-50">Pulse Network</span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-sun-text-main/5 hover:bg-sun-primary hover:text-black rounded-xl sm:rounded-2xl transition-all active:scale-95 border border-sun-border">
+                <button className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-sun-text-main/5 hover:bg-sun-primary hover:text-white rounded-xl sm:rounded-2xl transition-all active:scale-95 border border-sun-border">
                   <Plus size={18} />
                 </button>
               </div>
@@ -278,7 +278,7 @@ export const MessagesView = () => {
                   <div className="relative group cursor-pointer hidden xs:block">
                     <Avatar src={activeChat.user.avatar} size="sm" className="sm:w-10 sm:h-10 ring-2 ring-sun-border group-hover:ring-sun-primary/50 transition-all duration-500" />
                     {activeChat.user.online && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 sm:w-3.5 h-3 sm:h-3.5 bg-sun-primary rounded-full border-2 border-sun-bg shadow-[0_0_10px_rgba(255,184,0,0.5)]" />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 sm:w-3.5 h-3 sm:h-3.5 bg-sun-primary rounded-full border-2 border-sun-bg shadow-[0_0_10px_rgba(109,40,217,0.5)]" />
                     )}
                   </div>
                   <div className="min-w-0">
@@ -326,7 +326,7 @@ export const MessagesView = () => {
                   <p className="text-[9px] sm:text-[11px] text-sun-text-muted font-black uppercase tracking-[0.2em] opacity-40 max-w-[200px] sm:max-w-[240px] leading-relaxed">
                     Personalized Interaction Node • Trusted Synapse Member
                   </p>
-                  <button className="mt-6 px-6 py-2.5 bg-sun-text-main/5 hover:bg-sun-primary hover:text-black border border-sun-border hover:border-sun-primary/50 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-xl sm:rounded-2xl transition-all active:scale-95 shadow-sm">
+                  <button className="mt-6 px-6 py-2.5 bg-sun-text-main/5 hover:bg-sun-primary hover:text-white border border-sun-border hover:border-sun-primary/50 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-xl sm:rounded-2xl transition-all active:scale-95 shadow-sm">
                     View Network Identity
                   </button>
                 </div>
@@ -400,7 +400,7 @@ export const MessagesView = () => {
                        className={`
                          w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl sm:rounded-[1.4rem] transition-all duration-500
                          ${inputValue.trim() 
-                           ? 'bg-sun-primary text-black shadow-lg shadow-sun-primary/20 scale-100 hover:scale-105 active:scale-95' 
+                           ? 'bg-sun-primary text-white shadow-lg shadow-sun-primary/20 scale-100 hover:scale-105 active:scale-95' 
                            : 'bg-sun-text-main/5 text-sun-text-muted opacity-30 cursor-not-allowed scale-90'}
                        `}
                      >
@@ -432,7 +432,7 @@ export const MessagesView = () => {
               </p>
               <Button 
                 onClick={() => {}}
-                className="w-full !rounded-2xl py-5 sm:py-6 bg-sun-primary text-black hover:bg-white hover:text-black shadow-xl shadow-sun-primary/10 font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] transition-all active:scale-95 border-none"
+                className="w-full !rounded-2xl py-5 sm:py-6 bg-sun-primary text-white hover:bg-sun-secondary hover:text-white shadow-xl shadow-sun-primary/10 font-bold uppercase tracking-[0.1em] text-[10px] sm:text-[11px] transition-all active:scale-95 border-none"
               >
                 Launch Discovery
               </Button>

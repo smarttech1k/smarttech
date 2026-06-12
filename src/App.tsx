@@ -20,7 +20,7 @@ import { PlaceholderView } from './components/views/PlaceholderView';
 
 import { StoriesBar } from './components/features/content/Stories';
 import { ExploreView } from './components/features/content/Explore';
-import { ReelsView } from './components/features/content/Reels';
+import { SparksView } from './components/features/content/Sparks';
 import { LearnView } from './components/features/learning/Learn';
 import { LearningExperience } from './components/features/learning/LearningExperience';
 import { MessagesView } from './components/features/chat/Messages';
@@ -97,7 +97,7 @@ export default function App() {
         }>
           <Route path="home" element={<HomeView />} />
           <Route path="explore" element={<ExploreView onBack={() => navigate('/home')} />} />
-          <Route path="reels" element={<ReelsView setActiveTab={(tab) => navigate(`/${tab}`)} />} />
+          <Route path="sparks" element={<SparksView />} />
           <Route path="learn" element={<LearnView onStartLearning={() => navigate('/learning')} onBack={() => navigate('/home')} />} />
           <Route path="learning" element={<LearningExperience onBack={() => navigate('/learn')} />} />
           <Route path="messages" element={<MessagesView onBack={() => navigate('/home')} />} />

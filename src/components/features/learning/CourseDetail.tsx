@@ -53,7 +53,7 @@ const mockCurriculum: Section[] = [
   {
     title: 'Technical Implementation',
     lessons: [
-      { title: 'Sun Smart API Ecosystem', duration: '30:00' },
+      { title: 'Korusa API Ecosystem', duration: '30:00' },
       { title: 'Secure Distribution of Proprietary IP', duration: '12:10' },
       { title: 'Auto-scaling Mentorship with AI', duration: '45:00' },
     ]

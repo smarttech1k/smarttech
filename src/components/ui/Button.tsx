@@ -20,29 +20,29 @@ export const Button = ({
   className = '', 
   ...props 
 }: ButtonProps) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all focus:outline-none focus:ring-2 focus:ring-sun-primary active:scale-95 disabled:opacity-50 disabled:pointer-events-none rounded-full';
+  const baseStyles = 'inline-flex items-center justify-center font-bold tracking-wide transition-all focus:outline-none focus:ring-2 focus:ring-sun-primary active:scale-95 disabled:opacity-50 disabled:pointer-events-none rounded-xl';
   
   const variants = {
-    primary: 'bg-sun-primary text-black hover:bg-sun-primary/95 shadow-xl shadow-sun-primary/20',
-    secondary: 'bg-sun-surface-light text-sun-text-main border-2 border-sun-border hover:border-sun-primary/50 hover:bg-sun-surface transition-all duration-300',
+    primary: 'bg-sun-primary text-white hover:bg-sun-primary/90 shadow-lg shadow-sun-primary/20',
+    secondary: 'bg-white dark:bg-transparent border-2 border-sun-primary text-sun-primary hover:bg-sun-primary/5 transition-all duration-300',
     outline: 'bg-transparent border-2 border-sun-primary text-sun-primary hover:bg-sun-primary/10 transition-all',
-    ghost: 'bg-transparent text-sun-text-main hover:bg-sun-surface transition-all',
+    ghost: 'bg-transparent text-sun-text-muted hover:text-sun-primary hover:bg-sun-primary/5 transition-all',
   };
 
   const sizes = {
-    sm: 'px-4 py-2 text-xs font-black uppercase tracking-widest',
-    md: 'px-6 py-3 text-sm font-black uppercase tracking-widest',
-    lg: 'px-10 py-4 text-base font-black uppercase tracking-widest',
+    sm: 'px-4 py-2 text-xs font-bold uppercase tracking-wider',
+    md: 'px-6 py-3 text-sm font-bold uppercase tracking-wider',
+    lg: 'px-8 py-3.5 text-base font-bold uppercase tracking-wider',
   };
 
   return (
     <motion.button
       whileHover={{ 
-        y: -2,
-        boxShadow: variant === 'primary' ? '0 10px 25px -5px rgba(234, 179, 8, 0.4)' : '0 4px 12px -2px rgba(0, 0, 0, 0.1)'
+        y: -1.5,
+        boxShadow: variant === 'primary' ? '0 8px 20px -5px rgba(109, 40, 217, 0.4)' : '0 4px 12px -2px rgba(109, 40, 217, 0.1)'
       }}
-      whileTap={{ scale: 0.96 }}
-      transition={{ type: "spring", stiffness: 400, damping: 10 }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 400, damping: 12 }}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       {...(props as any)}
     >

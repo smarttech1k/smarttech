@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { NavTab } from '../../types';
 import { useUIStore } from '../../store/uiStore';
+import { KorusaLogo, KorusaIcon } from '../shared/Logo';
 
 export const Sidebar = ({ onSignOut }: { onSignOut?: () => void }) => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export const Sidebar = ({ onSignOut }: { onSignOut?: () => void }) => {
   const navItems: { icon: any, label: string, id: NavTab, path: string }[] = [
     { icon: Home, label: 'Home', id: 'home', path: '/home' },
     { icon: Compass, label: 'Explore', id: 'explore', path: '/explore' },
-    { icon: Video, label: 'Reels', id: 'reels', path: '/reels' },
+    { icon: Video, label: 'Sparks', id: 'sparks', path: '/sparks' },
     { icon: BookOpen, label: 'Learn', id: 'learn', path: '/learn' },
     { icon: MessageSquare, label: 'Messages', id: 'messages', path: '/messages' },
     { icon: Bell, label: 'Notifications', id: 'notifications', path: '/notifications' },
@@ -68,12 +69,12 @@ export const Sidebar = ({ onSignOut }: { onSignOut?: () => void }) => {
         } 
       `}>
         {/* Logo Section */}
-        <div className="flex items-center gap-4 mb-8 px-5 pt-6 shrink-0 overflow-hidden whitespace-nowrap">
-          <div className="bg-sun-primary p-2 rounded-xl shrink-0 ml-0.5">
-            <Sparkles size={24} className="text-black" />
+        <div className="flex items-center gap-4 mb-8 px-5 pt-6 shrink-0 overflow-hidden whitespace-nowrap cursor-pointer" onClick={() => navigate('/home')}>
+          <div className="shrink-0 ml-0.5">
+            <KorusaIcon size={32} />
           </div>
-          <span className={`font-display font-black tracking-tight text-sun-text-main text-xl transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
-            SUN SMART
+          <span className={`font-display font-black tracking-[0.18em] text-sun-text-main text-xl transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
+            KORUSA
           </span>
         </div>
 

@@ -20,7 +20,7 @@ export const MobileBottomNav = () => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Home', path: '/home' },
     { id: 'explore', icon: Compass, label: 'Explore', path: '/explore' },
-    { id: 'reels', icon: Video, label: 'Reels', path: '/reels' },
+    { id: 'sparks', icon: Video, label: 'Sparks', path: '/sparks' },
     { id: 'create', icon: Plus, label: 'Create', path: '/create', isCenter: true },
     { id: 'analytics', icon: BarChart3, label: 'Analytics', path: '/analytics' },
     { id: 'messages', icon: MessageCircle, label: 'Messages', path: '/messages' },

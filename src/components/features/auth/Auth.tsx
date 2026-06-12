@@ -6,6 +6,7 @@ import { Button } from '../../ui/Button';
 import { Input, Badge } from '../../ui/Input';
 import { BackButton } from '../../ui/BackButton';
 import { useUIStore } from '../../../store/uiStore';
+import { KorusaIcon } from '../../shared/Logo';
 
 type AuthView = 'welcome' | 'login' | 'signup' | 'forgot-password' | 'otp' | 'recovery';
 
@@ -85,10 +86,10 @@ export const AuthUI = ({
         {/* Logo Section - Only show when not in welcome view or when in modal */}
         {(view !== 'welcome' || isModal) && (
           <div className="flex flex-col items-center mb-10">
-            <div className="bg-sun-primary p-3 rounded-[2rem] rotate-12 mb-4 shadow-xl shadow-sun-primary/20">
-              <Sun size={32} className="text-black fill-current" />
+            <div className="bg-sun-primary p-3 rounded-[2rem] rotate-12 mb-4 shadow-xl shadow-sun-primary/20 flex items-center justify-center">
+              <KorusaIcon size={32} variant="dark" />
             </div>
-            <h1 className="font-display font-bold text-3xl tracking-tight uppercase">Sun Smart</h1>
+            <h1 className="font-display font-bold text-3xl tracking-tight uppercase">Korusa</h1>
             <p className="text-sun-text-muted text-sm mt-2 font-medium">Wisdom, shared & scaled.</p>
           </div>
         )}
@@ -110,7 +111,7 @@ export const AuthUI = ({
                     animate={{ scale: 1, opacity: 1 }}
                     className="w-24 h-24 bg-sun-primary/10 text-sun-primary rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-sun-primary/20 border border-sun-primary/20"
                   >
-                    <Sun size={52} className="animate-pulse" />
+                    <KorusaIcon size={52} className="animate-pulse animate-duration-200" />
                   </motion.div>
                   
                   <div className="space-y-6">
@@ -119,7 +120,7 @@ export const AuthUI = ({
                       <span className="text-sun-primary italic">EVOLVED.</span>
                     </h1>
                     <p className="text-sun-text-muted text-lg md:text-2xl font-medium max-w-3xl mx-auto leading-relaxed">
-                      Beyond the scroll. Sun Smart is the premium ecosystem where experts share knowledge and learners master tomorrow's skills through intentional collaboration.
+                      Beyond the scroll. Korusa is the premium ecosystem where experts share knowledge and learners master tomorrow's skills through intentional collaboration.
                     </p>
                   </div>
                 </div>
@@ -214,7 +215,7 @@ export const AuthUI = ({
                     {
                       name: "Sarah Chen",
                       role: "Senior AI Researcher",
-                      text: "Digital networking used to feel like a chore. Sun Smart makes it feel like an investment. I've scaled my reach by 3x without sacrificing depth.",
+                      text: "Digital networking used to feel like a chore. Korusa makes it feel like an investment. I've scaled my reach by 3x without sacrificing depth.",
                       img: "https://i.pravatar.cc/150?u=sarah"
                     },
                     {
@@ -226,7 +227,7 @@ export const AuthUI = ({
                     {
                       name: "Elena Rodriguez",
                       role: "Independent Creator",
-                      text: "Finally, a platform that respects my time. Every interaction on Sun Smart adds value to my life and career. No more dopamine loops.",
+                      text: "Finally, a platform that respects my time. Every interaction on Korusa adds value to my life and career. No more dopamine loops.",
                       img: "https://i.pravatar.cc/150?u=elena"
                     }
                   ].map((t, i) => (
