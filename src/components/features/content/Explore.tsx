@@ -5,11 +5,11 @@ import { Badge } from '../../ui/Input';
 import { BackButton } from '../../ui/BackButton';
 
 const categories = [
-  { id: 'all', label: 'All Lessons', icon: Sparkles },
-  { id: 'dev', label: 'Development', icon: Code },
-  { id: 'ai', label: 'Intelligence', icon: Brain },
-  { id: 'business', label: 'Scaling', icon: Briefcase },
-  { id: 'design', label: 'Experience', icon: Target },
+  { id: 'all', label: 'All Sparks', icon: Sparkles },
+  { id: 'dev', label: 'Photography', icon: Sparkles },
+  { id: 'ai', label: 'Storytelling', icon: Sparkles },
+  { id: 'business', label: 'Creative Tech', icon: Sparkles },
+  { id: 'design', label: 'Design & UX', icon: Sparkles },
 ];
 
 const mockItems = [
@@ -81,8 +81,8 @@ export const ExploreView = ({ onBack }: { onBack?: () => void }) => {
           {onBack && <BackButton onClick={onBack} label="Dashboard" sticky={true} />}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="space-y-1">
-              <h1 className="text-3xl font-display font-bold leading-tight">Explore lessons</h1>
-              <p className="text-sun-text-muted text-sm font-medium">Discover top-rated micro-lessons from global experts.</p>
+              <h1 className="text-3xl font-display font-bold leading-tight">Explore Sparks</h1>
+              <p className="text-sun-text-muted text-sm font-medium">Discover creative ideas and follow inspiring builders from around the world.</p>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-sun-primary/10 rounded-2xl border border-sun-primary/20">
               <TrendingUp size={16} className="text-sun-primary" />

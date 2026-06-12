@@ -24,7 +24,7 @@ type SettingsSection = 'account' | 'privacy' | 'security' | 'notifications' | 'a
 
 export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const sections = [
     { id: 'account', icon: User, label: 'Account' },

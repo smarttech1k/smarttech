@@ -24,7 +24,7 @@ import { BackButton } from '../../ui/BackButton';
 import { CourseDetailView } from './CourseDetail';
 
 const categories = [
-  'All Skills', 'Systems Architecture', 'AI Engineering', 'Full-stack Dev', 'Interaction Design', 'Product Strategy'
+  'All Skills', 'Photography & Video', 'Creative Writing', 'Design & UX', 'Creative Tech'
 ];
 
 interface Mentor {
@@ -38,60 +38,60 @@ interface Mentor {
 
 const FEATURED_MENTORS: Mentor[] = [
   {
-    name: "Dr. Sarah Chen",
-    role: "Former Lead Architect at Netflix",
+    name: "Sarah Chen",
+    role: "Travel Vlogger & Editor",
     avatar: "https://i.pravatar.cc/150?u=sarah",
     students: "8.4k",
     rating: "4.9",
-    specialty: "High Scale Distributed Systems"
+    specialty: "Short-form Editing Flow"
   },
   {
     name: "Alex Rivera",
-    role: "Principal Interaction Designer",
+    role: "Creative Director & UX Guru",
     avatar: "https://i.pravatar.cc/150?u=alex",
     students: "12.2k",
     rating: "4.9",
-    specialty: "Modular Design Token Systems"
+    specialty: "Sleek Aesthetics"
   },
   {
-    name: "Pranav Raj",
-    role: "WebAssembly Compiler Lead",
-    avatar: "https://i.pravatar.cc/150?u=pranav",
+    name: "Leon Vance",
+    role: "Author & Storyteller",
+    avatar: "https://i.pravatar.cc/150?u=leon",
     students: "4.6k",
     rating: "5.0",
-    specialty: "Rust & High-Performance Engines"
+    specialty: "High Hook Storytelling"
   }
 ];
 
 const mockMarketplaceCourses = [
   {
     id: "co-1",
-    title: 'SaaS Scale Strategies: Designing Microservices for 1M+ Active Users',
-    category: 'Systems Architecture',
-    instructor: 'Dr. Sarah Chen',
+    title: 'Short-Form Magic: Filming & Editing Sparks That Go Viral',
+    category: 'Photography & Video',
+    instructor: 'Sarah Chen',
     price: 0,
     rating: 4.9,
     students: '12k',
     duration: "14 Hours",
     lessons: "18 lessons",
-    thumbnail: 'https://images.unsplash.com/photo-1586717791821-3f44a563dc4c?w=800&q=80'
+    thumbnail: 'https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=800&q=80'
   },
   {
     id: "co-2",
-    title: 'Modern AI Pipelines & Transformers: Grounding LLMs in Production',
-    category: 'AI Engineering',
-    instructor: 'Dr. Leon Vance',
+    title: 'Storytelling 101: Captivate Your Audience In Under 60 Seconds',
+    category: 'Creative Writing',
+    instructor: 'Leon Vance',
     price: 0,
     rating: 4.8,
     students: '25k',
     duration: "9 Hours",
     lessons: "12 lessons",
-    thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80'
+    thumbnail: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&q=80'
   },
   {
     id: "co-3",
-    title: 'Advanced Interaction Architectures: CSS Grid & Custom Frame Animators',
-    category: 'Interaction Design',
+    title: 'Sleek Layout Design: Mastering Modern UI & Typography Pairings',
+    category: 'Design & UX',
     instructor: 'Alex Rivera',
     price: 0,
     rating: 4.7,
@@ -102,8 +102,8 @@ const mockMarketplaceCourses = [
   },
   {
     id: "co-4",
-    title: 'Co-Building Scalable Startups: Lean Launch Checklist for Elite Creators',
-    category: 'Product Strategy',
+    title: 'Creative Web Art: Build Interactive Playgrounds with Framer Motion',
+    category: 'Creative Tech',
     instructor: 'Elena Ray',
     price: 0,
     rating: 4.6,
@@ -192,11 +192,11 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
           <div className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 group">
             <div className="flex justify-between items-start">
               <div>
-                <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-[9px] font-bold py-0.5 mb-2">Systems Architecture</Badge>
+                <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-[9px] font-bold py-0.5 mb-2">Photography & Video</Badge>
                 <h4 className="text-sm font-bold text-sun-text-main group-hover:text-sun-primary transition-all line-clamp-1 leading-snug">
-                  SaaS Scale Strategies: Designing Microservices for 1M+ Active Users
+                  Short-Form Magic: Filming & Editing Sparks That Go Viral
                 </h4>
-                <p className="text-[11px] text-sun-text-muted mt-0.5">Chapter 4: Event Bus Synchronization Strategies</p>
+                <p className="text-[11px] text-sun-text-muted mt-0.5">Chapter 4: Perfect Pacing & Music Synchronization</p>
               </div>
               <button 
                 onClick={onStartLearning}
@@ -221,11 +221,11 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
           <div className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 group">
             <div className="flex justify-between items-start">
               <div>
-                <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/10 rounded-full text-[9px] font-bold py-0.5 mb-2">Interaction Design</Badge>
+                <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/10 rounded-full text-[9px] font-bold py-0.5 mb-2">Design & UX</Badge>
                 <h4 className="text-sm font-bold text-sun-text-main group-hover:text-sun-primary transition-all line-clamp-1 leading-snug">
-                  Advanced Interaction Architectures: CSS Grid & Custom Frame Animators
+                  Sleek Layout Design: Mastering Modern UI & Typography Pairings
                 </h4>
-                <p className="text-[11px] text-sun-text-muted mt-0.5">Chapter 2: Designing Multiplatform Scale Targets</p>
+                <p className="text-[11px] text-sun-text-muted mt-0.5">Chapter 2: Dynamic Layout Grids & Negative Space</p>
               </div>
               <button 
                 onClick={onStartLearning}

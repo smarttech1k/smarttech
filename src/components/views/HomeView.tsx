@@ -17,7 +17,7 @@ import { Badge } from '../ui/Input';
 export const HomeView = () => {
   const navigate = useNavigate();
 
-  // Premium mock community posts aligned with Korusa learning and startup focus
+  // Premium mock community posts aligned with Korusa creative and social focus
   const mockActivityFeed: PostProps[] = [
     {
       id: 'post-1',
@@ -26,11 +26,11 @@ export const HomeView = () => {
         name: 'Julian Thorne',
         handle: 'j_thorne',
         avatar: 'https://i.pravatar.cc/150?u=10',
-        role: 'Hardware Innovator',
+        role: 'Acoustic Musician & Singer',
         isExpert: true
       },
-      content: "I'm looking for 3 React developers to help team up and build an open-source IDE module. The goal is to limit heavy JavaScript executions based on local greenhouse gas grid metrics. Anyone interested in co-building? Let's spark a project thread!",
-      image: "https://images.unsplash.com/photo-1509391366360-fe5bb658582f?w=1200&q=80",
+      content: "Just posted a new 1-minute lesson on fingerpicking patterns. It's my first Spark video here! I'm looking for some friendly feedback on the pacing, or if anyone wants to team up for a duet on the next video, drop a comment! Let's create some music together.",
+      image: "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=1200&q=80",
       likes: 128,
       comments: 32,
       time: '12m ago'
@@ -42,10 +42,10 @@ export const HomeView = () => {
         name: 'Elena Vance',
         handle: 'evance_design',
         avatar: 'https://i.pravatar.cc/150?u=11',
-        role: 'Lead Interaction Designer'
+        role: 'Creative Storyteller'
       },
-      content: "Just finished a comprehensive curriculum on 'Spatial Interface Occlusions' in Vision Pro. Biggest design takeaway: Treat Z-axis depths as literal focus scales. Strongly recommend the Masterclass in the Learn tab! Here is a prototype screenshot.",
-      image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&q=80",
+      content: "If you're trying to grow on social channels, the biggest secret is formatting the first 3 seconds as an inviting visual hook. Just finished a great micro-lesson by Sarah Chen. It totally transformed my pacing! Highly recommend checking it out in the Learn section.",
+      image: "https://images.unsplash.com/photo-1542435503-956c469947f6?w=1200&q=80",
       likes: 94,
       comments: 14,
       time: '2 hours ago'
@@ -57,9 +57,9 @@ export const HomeView = () => {
         name: 'Marcus Bell',
         handle: 'mbell_social',
         avatar: 'https://i.pravatar.cc/150?u=15',
-        role: 'System Engineer'
+        role: 'Digital Art Creator'
       },
-      content: "Does anyone want to jump on a quick huddle tomorrow? Talking about using WebRTC to synchronize canvas objects on active peer rooms. Drop a comment if you'd like an invite!",
+      content: "Who wants to do an informal art feedback cozy hour tomorrow? We'll jump on a chat, share some of our current sketch files, and share tips on color theory. Absolutely friendly vibes—let me know if you want an invite!",
       likes: 42,
       comments: 29,
       time: '4 hours ago'
@@ -87,14 +87,14 @@ export const HomeView = () => {
       {/* Left and Center Main Content Flow */}
       <div className="lg:col-span-8 space-y-10">
         
-        {/* 1. WELCOME HERO SECTION */}
+        {/* 1. PROMPT BAR (MODERN WRITE-BOX) */}
+        <PromptBar onFocus={() => navigate('/create')} />
+
+        {/* 2. WELCOME HERO SECTION */}
         <HeroSection 
           onExplore={() => navigate('/explore')} 
           onLearn={() => navigate('/learn')} 
         />
-
-        {/* 2. PROMPT BAR (MODERN WRITE-BOX) */}
-        <PromptBar onFocus={() => navigate('/create')} />
 
         {/* 3. QUICK ACTION TILES */}
         <QuickActionCards 

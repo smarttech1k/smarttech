@@ -41,9 +41,9 @@ interface ChatSession {
 }
 
 const mockSessions: ChatSession[] = [
-  { id: '1', title: 'Rust vs WebAssembly System Web', lastMessage: 'Rust compiles directly to...', timestamp: new Date(Date.now() - 1000 * 60 * 30) },
-  { id: '2', title: 'Drafting Spark: CSS Grids', lastMessage: 'A 50-second video flow on...', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2) },
-  { id: '3', title: 'System Architecture Checklist', lastMessage: 'Ensure you utilize state...', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24) },
+  { id: '1', title: 'Lighting Setup & Warm Tones', lastMessage: 'Ring lights work great when...', timestamp: new Date(Date.now() - 1000 * 60 * 30) },
+  { id: '2', title: 'Drafting Spark: Sound Design', lastMessage: 'A 50-second video flow on...', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2) },
+  { id: '3', title: 'Creator Storyboard Checklist', lastMessage: 'Ensure you keep the hook...', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24) },
 ];
 
 export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
@@ -51,13 +51,13 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
     {
       id: '1',
       role: 'user',
-      content: "Suggest dynamic ideas for a new educational video on system architectural scale.",
+      content: "Suggest fun ideas for a new Spark video on creative photography.",
       timestamp: new Date(Date.now() - 1000 * 60 * 10)
     },
     {
       id: '2',
       role: 'assistant',
-      content: "Hello! Here are 3 highly visual, high-engagement concepts customized for a **Korusa Spark** video:\n\n1. **'The Microservice Maze'**: Render a visual contrast between monolithic network traffic vs a cleanly routed event-driven bus.\n2. **'State Isolation Demystified'**: Explain how to prevent infinite looping inside reactive layouts by storing primitive states.\n3. **'Edge Caching Explained'**: Use a pizza delivery analogy to visually teach how CDN latency acts as a regional warehouse network.",
+      content: "Hello! I would love to help you brainstorm. Here are 3 creative, highly engaging concepts customized for a **Korusa Spark** video:\n\n1. **'The Golden Hour Trick'**: Show how using a simple colored folder in front of a window creates instant sunset lighting on a budget.\n2. **'Negative Space Magic'**: Position your subject in the bottom-left corner with simple text overlays filling the rest of the empty space.\n3. **'Behind the Camera vs Final Shot'**: Film the messy setup behind the scenes, then cut to your beautiful final photo synced perfectly to a beat drop.",
       timestamp: new Date(Date.now() - 1000 * 60 * 9)
     }
   ]);
@@ -101,11 +101,11 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
     setTimeout(() => {
       let reply = "";
       if (content.toLowerCase().includes("spark")) {
-        reply = "Here is a fast-paced storyboard for your **Korusa Spark** script:\n\n- **0-05s Hook**: Stare directly and say: 'Stop using raw useEffect for API hooks. It is slow.'\n- **05-25s Problem/Fix**: Show side-by-side terminal of race condition error vs clean async controller cleanup.\n- **250-45s Value**: Explain the performance gain.\n- **45-50s Call to Action**: 'Connect with me on Korusa for code copy!'";
+        reply = "Here is a fast-paced storyboard outline for your next **Korusa Spark** video:\n\n- **0-05s Hook**: Look directly at the camera and say: 'Stop deleting your blurry shots. Try this instead.'\n- **05-25s Tip**: Show side-by-side transition showing blurry lens vs creative vintage filter effect.\n- **25-45s Value**: Explain how motion blur adds retro art flavor.\n- **45-50s Call to Action**: 'Follow me on Korusa for weekly setup tips!'";
       } else if (content.toLowerCase().includes("course") || content.toLowerCase().includes("learn") || content.toLowerCase().includes("explain")) {
-        reply = "Understood. Let's break this down into a modular learning path:\n\n1. **First Milestone**: Understand structural immutability.\n2. **Second Milestone**: Master context boundaries and event buses.\n3. **Pragmatic Application**: Build a real-time micro-service prototype next weekend. Let me know if you want the sample code schema!";
+        reply = "Understood! Let's map out a friendly 3-step path to master this:\n\n1. **First Step**: Master natural light angles.\n2. **Second Step**: Practice the 3-second hook structure.\n3. **Pragmatic Practice**: Publish a draft Spark this Sunday afternoon. I am here to review it anytime!";
       } else {
-        reply = `I have context-processed your prompt: "${content}".\n\nFor best results inside the Korusa community network, focus on concise code patterns or design layouts. Let me know how I can detail this further!`;
+        reply = `I have processed your prompt: "${content}".\n\nFor best results inside the Korusa community, focus on visual storytelling, creator tips, or typography design. Let me know how I can help!`;
       }
 
       const assistantMessage: Message = {
@@ -121,15 +121,15 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
 
   // 1. SUGGESTED PROMPTS CORES
   const SUGGESTED_PROMPTS = [
-    { text: "System design masterclass syllabus", action: "Draft a 4-week learning curriculum for high performance micro-services", type: "learn" },
-    { text: "Rust vs Go compiler latency guide", action: "Directly contrast Rust and Go compilation scales for cloud applications", type: "tech" },
+    { text: "Viral short-form hook formulas", action: "Draft a friendly list of 5 hook structures for 1-minute creative videos", type: "learn" },
+    { text: "Warm cozy lighting tricks on a budget", action: "Explain how to set up simple ring lights and colored folders for warm sunset tones", type: "tech" },
   ];
 
   // 2. CONTENT CREATION SHORTCUTS
   const CONTENT_SHORTCUTS = [
-    { title: "Draft Spark Script", prompt: "Write an engaging 50-second Spark Script explaining reactive race conditions", icon: <Flame size={14} className="text-sun-primary" /> },
-    { title: "Format LinkedIn Post", prompt: "Summarize my cloud system design lessons into a clean professional post", icon: <PenTool size={14} className="text-emerald-500" /> },
-    { title: "Write Project Pitch", prompt: "Structure a clear co-building pitch looking for design collaborators", icon: <Briefcase size={14} className="text-indigo-500" /> },
+    { title: "Draft Spark Script", prompt: "Write an engaging 50-second Spark Script explaining the concept of negative space in photography", icon: <Flame size={14} className="text-sun-primary" /> },
+    { title: "Format Social Captions", prompt: "Summarize my layout design lessons into a warm, inviting social post caption", icon: <PenTool size={14} className="text-emerald-500" /> },
+    { title: "Seek Collaboration", prompt: "Structure a friendly post looking for fellow creators to duet, review, or hang out with", icon: <Briefcase size={14} className="text-indigo-500" /> },
   ];
 
   return (
@@ -142,8 +142,8 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
             <Bot size={20} />
           </div>
           <div>
-            <span className="font-display font-bold text-base text-sun-text-main block">Korusa Mentor AI</span>
-            <span className="text-[9px] text-sun-primary uppercase tracking-widest font-black leading-none">Synthesizer Mode</span>
+            <span className="font-display font-bold text-base text-sun-text-main block">Korusa Creator AI</span>
+            <span className="text-[9px] text-sun-primary uppercase tracking-widest font-black leading-none">Inspiration Mode</span>
           </div>
         </div>
 
@@ -152,22 +152,22 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
           onClick={() => setMessages([])}
         >
           <Plus size={14} />
-          <span>New AI Consultation</span>
+          <span>New Friendly Chat</span>
         </Button>
 
         {/* 3. LEARNING ASSISTANCE SPECIALIZED CARDS */}
         <div className="bg-gradient-to-br from-sun-primary/10 to-sun-secondary/10 border border-sun-primary/15 rounded-2xl p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Brain size={16} className="text-sun-primary" />
-            <h4 className="text-xs font-bold text-sun-text-main">Learning Assistant</h4>
+            <h4 className="text-xs font-bold text-sun-text-main">Creative Assistant</h4>
           </div>
           <p className="text-[11px] text-sun-text-muted leading-relaxed">
-            Click any shortcut or describe an advanced concept to receive systematic cheat-sheets, quiz reviews, or storyboards.
+            Click any shortcut or ask anything to brainstorm cozy script ideas, layout hacks, or seek community collaborators!
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-2 scrollbar-hide">
-          <p className="px-2 text-[9px] font-black text-sun-text-muted uppercase tracking-[0.2em] opacity-40">Recent consultations</p>
+          <p className="px-2 text-[9px] font-black text-sun-text-muted uppercase tracking-[0.2em] opacity-40">Recent chat threads</p>
           {mockSessions.map((session) => (
             <button
               key={session.id}
@@ -202,12 +202,12 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
              </button>
              <div className="flex flex-col">
                <h1 className="text-sm sm:text-base font-bold text-sun-text-main flex items-center gap-1.5">
-                 Korusa AI Co-Pilot
-                 <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 text-[9px] leading-none py-0.5 font-bold">GPT-4o</Badge>
+                 Korusa Creator AI
+                 <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 text-[9px] leading-none py-0.5 font-bold">Friendly Guide</Badge>
                </h1>
                <div className="flex items-center gap-1.5 mt-0.5">
                   <div className="w-1.5 h-1.5 bg-sun-accent rounded-full animate-pulse" />
-                  <span className="text-[8px] sm:text-[9px] font-bold text-sun-text-muted uppercase tracking-widest whitespace-nowrap">Active consultation protocol</span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-sun-text-muted uppercase tracking-widest whitespace-nowrap">Ready to brainstorm together</span>
                </div>
              </div>
           </div>

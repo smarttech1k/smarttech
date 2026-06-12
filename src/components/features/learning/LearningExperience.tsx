@@ -37,19 +37,19 @@ interface Chapter {
 
 const mockChapters: Chapter[] = [
   {
-    title: 'Chapter 1: The Wisdom Core',
+    title: 'Chapter 1: Creative Storytelling & Hooks',
     lessons: [
-      { id: '1', title: 'Philosophy of Expert Systems', duration: '12:45', completed: true, type: 'video' },
-      { id: '2', title: 'Defining Your Wisdom Profile', duration: '08:20', completed: true, type: 'video' },
-      { id: '3', title: 'Core Values & Ethics', duration: '15:10', completed: false, type: 'video' },
+      { id: '1', title: 'The 3-Second Hook Method', duration: '12:45', completed: true, type: 'video' },
+      { id: '2', title: 'Designing Your Creator Style & Flow', duration: '08:20', completed: true, type: 'video' },
+      { id: '3', title: 'Lighting & Beautiful Mobile Frame Setup', duration: '15:10', completed: false, type: 'video' },
     ]
   },
   {
-    title: 'Chapter 2: Information Growth',
+    title: 'Chapter 2: Mobile Filming, Pacing & Editing',
     lessons: [
-      { id: '4', title: 'Modular Content Design', duration: '22:15', completed: false, type: 'video' },
-      { id: '5', title: 'Knowledge Graph Basics', duration: '18:40', completed: false, type: 'reading' },
-      { id: '6', title: 'Mid-term Assessment', duration: '10:00', completed: false, type: 'quiz' },
+      { id: '4', title: 'Dynamic Trimming & Jump-Cuts', duration: '22:15', completed: false, type: 'video' },
+      { id: '5', title: 'Music Sync & Layering Ambient Sounds', duration: '18:40', completed: false, type: 'reading' },
+      { id: '6', title: 'Practice Assessment: Creating Your First Spark', duration: '10:00', completed: false, type: 'quiz' },
     ]
   }
 ];
@@ -67,8 +67,8 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
           <BackButton onClick={onBack} label="" className="!p-0" />
           <div className="h-8 w-px bg-sun-border hidden sm:block"></div>
           <div>
-            <h1 className="text-sm font-bold truncate max-w-[150px] sm:max-w-md">3. Core Values & Ethics in Expert Systems</h1>
-            <p className="text-[10px] text-sun-text-muted font-bold uppercase tracking-widest hidden sm:block">Scaling Wisdom Architecture</p>
+            <h1 className="text-sm font-bold truncate max-w-[150px] sm:max-w-md">3. Lighting & Beautiful Mobile Frame Setup</h1>
+            <p className="text-[10px] text-sun-text-muted font-bold uppercase tracking-widest hidden sm:block">Short-Form Magic: Filming & Editing Sparks</p>
           </div>
         </div>
 

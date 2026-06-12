@@ -35,32 +35,32 @@ export const HeroSection = ({ onExplore, onLearn }: { onExplore: () => void; onL
     >
       <div className="relative z-10 space-y-6 max-w-2xl">
         <Badge className="bg-white/20 text-white backdrop-blur-md border-transparent hover:bg-white/35 py-1.5 px-3 rounded-lg text-xs leading-none font-bold">
-          ✨ Welcome to Korusa Design System v2.0
+          ✨ Discover. Share. Grow.
         </Badge>
         
-        <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight leading-none text-white uppercase sm:normal-case">
-          Connect. <span className="font-sans font-normal italic text-sun-accent">Learn</span>.<br /> 
-          Build <span className="underline decoration-sun-accent/40 decoration-4 underline-offset-4">Together</span>.
+        <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight text-white uppercase sm:normal-case">
+          Discover <span className="font-sans font-normal italic text-sun-accent">people</span>, ideas, and <span className="underline decoration-sun-accent/40 decoration-4 underline-offset-4">skills</span> you&apos;ll love.
         </h1>
         
         <p className="text-white/80 text-sm sm:text-base leading-relaxed font-normal max-w-xl">
-          Korusa is the premium ecosystem where professional content creators share knowledge, learners master futuristic skills, and teams match on real-world projects. No noise, just progression.
+          Follow creators, learn from mentors, and connect with a friendly community that helps you grow. Explore exciting hobbies, learn new skills naturally, and have fun together!
         </p>
 
         <div className="flex flex-wrap gap-4 pt-2">
           <Button 
+            variant="ghost"
             onClick={onExplore}
             className="bg-white text-sun-primary hover:bg-white/90 px-6 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg"
           >
             <Compass size={16} className="mr-2" />
-            Explore Feed
+            Start Exploring
           </Button>
           <button 
             onClick={onLearn}
             className="px-6 py-3 bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl border border-white/20 transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white"
           >
             <BookOpen size={16} />
-            Skill Paths
+            Find Creators
           </button>
         </div>
       </div>
@@ -112,23 +112,23 @@ export const QuickActionCards = ({
   const actions = [
     {
       title: "Watch Sparks",
-      desc: "Instant tech inspiration & skill tips",
+      desc: "Quick ideas, skills, and inspiration in under a minute",
       icon: <Flame size={20} />,
       color: "bg-sun-primary text-white",
       hoverColor: "hover:border-sun-primary",
       onClick: onSparkClick
     },
     {
-      title: "Explore Courses",
-      desc: "Structured paths by leading mentors",
+      title: "Explore Creators",
+      desc: "Follow inspiring creators and trending mentors",
       icon: <Award size={20} />,
       color: "bg-emerald-600 text-white",
       hoverColor: "hover:border-emerald-500",
       onClick: onCourseClick
     },
     {
-      title: "Co-Build Projects",
-      desc: "Match with elite developers worldwide",
+      title: "Popular Lessons",
+      desc: "Discover fascinating skills and have fun while learning",
       icon: <Terminal size={20} />,
       color: "bg-indigo-600 text-white",
       hoverColor: "hover:border-indigo-500",
@@ -165,10 +165,10 @@ export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?
   const courses = [
     {
       id: "c1",
-      category: "System Architecture",
-      title: "SaaS Scale Strategies: Designing Microservices for 1M+ Active Users",
+      category: "Photography & Video",
+      title: "Short-Form Magic: Filming & Editing Sparks That Go Viral",
       mentor: "Sarah Chen",
-      role: "Senior Architect",
+      role: "Travel Vlogger & Editor",
       rating: "4.9",
       students: "2.4k",
       color: "border-sun-primary/10",
@@ -176,10 +176,10 @@ export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?
     },
     {
       id: "c2",
-      category: "Machine Learning",
-      title: "Modern AI Pipelines & Transformers: Grounding LLMs in production",
-      mentor: "Dr. Leon Vance",
-      role: "AI Lead",
+      category: "Creative Writing",
+      title: "Storytelling 101: Captivate Your Audience In Under 60 Seconds",
+      mentor: "Leon Vance",
+      role: "Creative Director",
       rating: "4.8",
       students: "1.8k",
       color: "border-emerald-500/10",
@@ -191,14 +191,14 @@ export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?
     <div className="space-y-6">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h3 className="text-xl font-bold tracking-tight text-sun-text-main">Top Learning Paths</h3>
-          <p className="text-xs text-sun-text-muted mt-0.5">Top-rated curricula recommended for your profile</p>
+          <h3 className="text-xl font-bold tracking-tight text-sun-text-main">Creator Picks & Popular Lessons</h3>
+          <p className="text-xs text-sun-text-muted mt-0.5">Handpicked skills from creators worth following</p>
         </div>
         <button 
           onClick={() => onCourseClick()}
           className="text-xs font-bold text-sun-primary uppercase hover:underline flex items-center gap-1"
         >
-          View All Recommendations
+          View More Lessons
           <ArrowRight size={12} />
         </button>
       </div>
@@ -227,11 +227,11 @@ export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?
               <div className="flex items-center gap-2">
                 <Avatar src={`https://i.pravatar.cc/150?u=${course.mentor}`} size="sm" />
                 <div>
-                  <p className="text-[11px] font-bold text-sun-text-main">{course.mentor}</p>
-                  <p className="text-[10px] text-sun-text-muted">{course.role}</p>
+                   <p className="text-[11px] font-bold text-sun-text-main">{course.mentor}</p>
+                   <p className="text-[10px] text-sun-text-muted">{course.role}</p>
                 </div>
               </div>
-              <span className="text-[10px] text-sun-text-muted font-semibold">{course.students} enrolled</span>
+              <span className="text-[10px] text-sun-text-muted font-semibold">{course.students} learning</span>
             </div>
           </div>
         ))}
@@ -345,17 +345,17 @@ export const CreatorSpotlight = () => {
   const creators = [
     {
       name: "Pranav Raj",
-      role: "Compiler Engineer",
+      role: "Motion Designer & 3D Artist",
       avatar: "https://i.pravatar.cc/150?u=pranav",
       rating: "5.0",
-      skills: ["Rust", "Compilers", "WebAssembly"]
+      skills: ["Framer Motion", "VFX", "Art"]
     },
     {
       name: "Tanya Sinclair",
-      role: "UX Strategy Lead",
+      role: "Creative Director & UX Guru",
       avatar: "https://i.pravatar.cc/150?u=tanya",
       rating: "4.9",
-      skills: ["Design Systems", "Framer", "HCl"]
+      skills: ["Typography", "Color Theory", "Storyboarding"]
     }
   ];
 
@@ -363,7 +363,7 @@ export const CreatorSpotlight = () => {
     <section className="bg-sun-surface border border-sun-border p-6 rounded-2xl space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">Creator Spotlight</h3>
-        <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-[10px] font-black uppercase tracking-widest text-[9px] px-2 py-0.5">Top Voted</Badge>
+        <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-xs font-black uppercase tracking-widest px-2 py-0.5">Top Voted</Badge>
       </div>
 
       <div className="space-y-4">
@@ -385,7 +385,7 @@ export const CreatorSpotlight = () => {
               </div>
             </div>
             <button className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1.5 bg-sun-primary text-white hover:bg-sun-primary/90 rounded-md transition-colors shrink-0">
-              Connect
+              Follow
             </button>
           </div>
         ))}
@@ -397,17 +397,17 @@ export const CreatorSpotlight = () => {
 // 7. TRENDING DISCUSSIONS (FOR SIDEBAR)
 export const TrendingDiscussions = () => {
   const topics = [
-    { title: "#TypeScript5", counts: "1.4k posts", trend: "+24% today" },
-    { title: "#NeuralInterfaces", counts: "892 posts", trend: "+120% spikes" },
-    { title: "#SaaSBootstrap", counts: "320 posts", trend: "+5% steady" },
-    { title: "#WebAssembly3D", counts: "432 posts", trend: "+18% yesterday" }
+    { title: "#StorytellingSecrets", counts: "1.4k posts", trend: "+24% today" },
+    { title: "#SparksInspiration", counts: "892 posts", trend: "+120% sparks" },
+    { title: "#MindfulCreating", counts: "320 posts", trend: "+5% steady" },
+    { title: "#CreativeTechArt", counts: "432 posts", trend: "+18% yesterday" }
   ];
 
   return (
     <section className="bg-sun-surface border border-sun-border p-6 rounded-2xl space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp size={16} className="text-sun-primary" />
-        <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">Trending Discussions</h3>
+        <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">Trending Topics</h3>
       </div>
       
       <div className="divide-y divide-sun-border/40">

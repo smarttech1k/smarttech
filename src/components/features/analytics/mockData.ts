@@ -16,11 +16,11 @@ export const ANALYTICS_MOCK_DATA = {
     { name: 'Sun', reach: 2100, learning: 720, engagement: 590 },
   ],
   topContent: [
-    { id: 1, title: 'Modular Architecture: Scaling SaaS Microservices with WebRTC', views: '14K', likes: '1.4K', comments: 120, thumbnail: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=300&h=300&fit=crop' },
-    { id: 2, title: '5 Critical CSS Grids Mistakes and Interactive Solutions', views: '9.8K', likes: '910', comments: 84, thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=300&h=300&fit=crop' },
-    { id: 3, title: 'The Next-Gen User Experience Roadmap: Zero Latency Systems', views: '8.4K', likes: '840', comments: 72, thumbnail: 'https://images.unsplash.com/photo-1518005020250-6759247f3cae?w=300&h=300&fit=crop' },
-    { id: 4, title: 'Server-Authoritative State Synchronization Playbook', views: '6.5K', likes: '580', comments: 46, thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=300&h=300&fit=crop' },
-    { id: 5, title: 'Compiling WebAssembly at Runtime: High-Performance Web Canvas', views: '5.2K', likes: '620', comments: 40, thumbnail: 'https://images.unsplash.com/photo-1509391366360-fe5bb584852a?w=300&h=300&fit=crop' },
+    { id: 1, title: 'Short-Form Magic: Filming & Editing Sparks That Go Viral', views: '14K', likes: '1.4K', comments: 120, thumbnail: 'https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=300&h=300&fit=crop' },
+    { id: 2, title: 'Storytelling 101: Captivate Your Audience In Under 60 Seconds', views: '9.8K', likes: '910', comments: 84, thumbnail: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=300&h=300&fit=crop' },
+    { id: 3, title: 'Cozy Studio setup: Getting Perfect Natural Light Under $50', views: '8.4K', likes: '840', comments: 72, thumbnail: 'https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=300&h=300&fit=crop' },
+    { id: 4, title: 'Typography Secrets: Eye-Catching Visual Text Overlay Layouts', views: '6.5K', likes: '580', comments: 46, thumbnail: 'https://images.unsplash.com/photo-1542435503-956c469947f6?w=300&h=300&fit=crop' },
+    { id: 5, title: 'My Directing Playbook: Staggering Motion VFX in Framer Motion', views: '5.2K', likes: '620', comments: 40, thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=300&h=300&fit=crop' },
   ],
   audience: {
     countries: [

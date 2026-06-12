@@ -38,10 +38,10 @@ import { ANALYTICS_MOCK_DATA } from './mockData';
 // Korusa Purple Official Color Palette
 const COLORS = ['#6D28D9', '#8B5CF6', '#A78BFA', '#4C1D95', '#DDD6FE'];
 
-const MetricCard: React.FC<{ item?: any; isLoading?: boolean }> = ({ item, isLoading }) => {
+const MetricCard: React.FC<{ item?: any; isLoading?: boolean; className?: string }> = ({ item, isLoading, className = "" }) => {
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border p-6 rounded-2xl animate-pulse space-y-4">
+      <div className={`bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border p-4 sm:p-6 rounded-2xl animate-pulse space-y-4 ${className}`}>
         <div className="flex justify-between items-start">
           <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl" />
           <div className="w-12 h-5 bg-slate-100 dark:bg-slate-800 rounded-full" />
@@ -61,7 +61,7 @@ const MetricCard: React.FC<{ item?: any; isLoading?: boolean }> = ({ item, isLoa
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4, scale: 1.01 }}
-      className="bg-white dark:bg-sun-surface border-t-4 border-t-sun-primary border-x border-b border-gray-100 dark:border-sun-border/50 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group"
+      className={`bg-white dark:bg-sun-surface border-t-4 border-t-sun-primary border-x border-b border-gray-100 dark:border-sun-border/50 p-4 sm:p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group ${className}`}
     >
       <div className="absolute -right-4 -bottom-4 p-6 opacity-[0.03] text-sun-primary pointer-events-none group-hover:scale-110 transition-transform duration-300">
         <Icon size={96} />
@@ -113,8 +113,8 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
   }
 
   return (
-    <div className="space-y-10 pb-20 max-w-7xl mx-auto">
-      {/* SaaS Dashboard Title bar */}
+    <div className="space-y-6 sm:space-y-10 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8">
+      {/* Design-Focused Creative Insights Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 md:gap-8 border-b border-sun-border/40 pb-6">
         <div className="space-y-4">
           {onBack && (
@@ -127,62 +127,72 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
               <div className="p-1.5 rounded-full bg-sun-surface group-hover:bg-sun-primary/10 group-hover:text-sun-primary transition-all border border-sun-border/40">
                 <ChevronLeft size={10} />
               </div>
-              Back to Stream
+              Back to Home
             </motion.button>
           )}
           <div>
              <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full bg-sun-primary shadow-[0_0_10px_rgba(109,40,217,0.5)] animate-pulse"></div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-sun-primary">Korusa SaaS Analytics</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-sun-primary">Your Insights</p>
              </div>
-             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-sun-text-main">
-                Creator & Learning Operations
+             <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-sun-text-main">
+                Insights & Community Progress
              </h1>
-             <p className="text-sun-text-muted mt-2 text-sm max-w-lg leading-relaxed">
-               Analyze reach distributions, student interaction times, and track key community participation indexes.
+             <p className="text-sun-text-muted mt-2 text-xs sm:text-sm max-w-lg leading-relaxed">
+               See how your Spark videos, stories, and lessons are inspiring your friendly community of learners.
              </p>
           </div>
         </div>
 
-        <div className="flex gap-3 shrink-0">
-          <button className="flex items-center justify-center gap-2 px-5 py-3 bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border rounded-xl text-xs font-bold uppercase tracking-wider text-sun-text-muted hover:text-sun-primary hover:border-sun-primary/20 transition-all">
-            <Filter size={14} className="text-sun-primary" /> Filter Matrix
+        <div className="grid grid-cols-2 sm:flex gap-3 shrink-0 w-full sm:w-auto">
+          <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border rounded-xl text-xs font-bold uppercase tracking-wider text-sun-text-muted hover:text-sun-primary hover:border-sun-primary/20 transition-all">
+            <Filter size={14} className="text-sun-primary" /> Filter
           </button>
-          <button className="flex items-center justify-center gap-2 px-5 py-3 bg-sun-primary text-white hover:bg-sun-secondary rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-sun-primary/10">
-            <Download size={14} /> Data Stream
+          <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-sun-primary text-white hover:bg-sun-secondary rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md shadow-sun-primary/10">
+            <Download size={14} /> Share Progress
           </button>
         </div>
       </header>
 
       {/* Modern Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
         {isLoading 
-          ? [1, 2, 3, 4, 5].map(i => <MetricCard key={i} isLoading />)
-          : ANALYTICS_MOCK_DATA.summary.map((item) => (
-              <MetricCard key={item.id} item={item} />
+          ? [1, 2, 3, 4, 5].map((i, idx) => (
+              <MetricCard 
+                key={i} 
+                isLoading 
+                className={idx === 4 ? "sm:col-span-2 md:col-span-2 xl:col-span-1" : ""}
+              />
+            ))
+          : ANALYTICS_MOCK_DATA.summary.map((item, idx) => (
+              <MetricCard 
+                key={item.id} 
+                item={item} 
+                className={idx === 4 ? "sm:col-span-2 md:col-span-2 xl:col-span-1" : ""}
+              />
             ))
         }
       </div>
 
       {/* Main Analytical Chart Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
         {isLoading ? <ChartSkeleton /> : (
           <motion.div 
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300"
+            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-4 sm:p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300"
           >
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex justify-between items-start mb-6 sm:mb-8">
               <div>
-                <h3 className="text-base font-bold text-sun-text-main">Weekly Reach & Attention</h3>
-                <p className="text-xs text-sun-text-muted leading-relaxed max-w-sm mt-1">Reflecting total daily views and impressions across your content</p>
+                <h3 className="text-base font-bold text-sun-text-main">Weekly Engagement & Discovery</h3>
+                <p className="text-xs text-sun-text-muted leading-relaxed max-w-sm mt-1">Views, likes, and shares across all your Spark videos and stories</p>
               </div>
               <span className="text-[10px] font-bold px-2.5 py-1 bg-sun-primary/10 text-sun-primary rounded-full border border-sun-primary/15 animate-pulse">
                 LIVE REACH
               </span>
             </div>
             
-            <div className="h-[280px] w-full">
+            <div className="h-[240px] sm:h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <AreaChart data={ANALYTICS_MOCK_DATA.growth}>
                   <defs>
@@ -232,19 +242,19 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.99 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300"
+            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-4 sm:p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300"
           >
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex justify-between items-start mb-6 sm:mb-8">
               <div>
-                <h3 className="text-base font-bold text-sun-text-main">Learning Activity & Hours</h3>
-                <p className="text-xs text-sun-text-muted leading-relaxed max-w-sm mt-1">Total minutes completed on mentorship huddles and skill paths</p>
+                <h3 className="text-base font-bold text-sun-text-main">Time Spent Learning Together</h3>
+                <p className="text-xs text-sun-text-muted leading-relaxed max-w-sm mt-1">Minutes spent watching Spark lessons and practicing creative skills</p>
               </div>
               <button className="p-2 text-sun-text-muted hover:text-sun-primary transition-colors hover:bg-sun-bg rounded-lg">
                 <MoreHorizontal size={16} />
               </button>
             </div>
 
-            <div className="h-[280px] w-full">
+            <div className="h-[240px] sm:h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={ANALYTICS_MOCK_DATA.growth}>
                   <defs>
@@ -277,7 +287,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                     dataKey="learning" 
                     fill="url(#colorLearning)" 
                     radius={[6, 6, 0, 0]} 
-                    barSize={28}
+                    barSize={20}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -287,19 +297,19 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
       </div>
 
       {/* Library Table and Geography splits */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
         {/* Post library table */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="xl:col-span-2 bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 rounded-2xl p-6 sm:p-8 shadow-sm overflow-hidden"
+          className="xl:col-span-2 bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 rounded-2xl p-4 sm:p-8 shadow-sm overflow-hidden"
         >
           <div className="flex justify-between items-center pb-6 border-b border-gray-100 dark:border-sun-border/40">
             <div>
-              <h3 className="text-base font-bold text-sun-text-main">High Performing Content</h3>
-              <p className="text-xs text-sun-text-muted mt-0.5">Performance index across modular files and Spark videos</p>
+              <h3 className="text-base font-bold text-sun-text-main">Popular Spark Creations</h3>
+              <p className="text-xs text-sun-text-muted mt-0.5">Top-performing educational art guides and video storyboards</p>
             </div>
-            <button className="px-4 py-2 bg-sun-bg hover:bg-sun-primary/10 border border-sun-border text-xs text-sun-text-muted hover:text-sun-primary font-bold rounded-lg transition-all">
+            <button className="px-3 py-1.5 sm:px-4 sm:py-2 bg-sun-bg hover:bg-sun-primary/10 border border-sun-border text-xs text-sun-text-muted hover:text-sun-primary font-bold rounded-lg transition-all">
               Details Log
             </button>
           </div>
@@ -309,37 +319,44 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
               <thead>
                 <tr className="text-sun-text-muted uppercase tracking-wider text-[10px] border-b border-gray-100 dark:border-sun-border/20">
                   <th className="py-4 font-bold">Concept Resource</th>
-                  <th className="py-4 font-bold text-center">Views</th>
-                  <th className="py-4 font-bold text-center">Likes</th>
-                  <th className="py-1.5 font-bold text-right">Growth Rank</th>
+                  <th className="py-4 font-bold text-center hidden sm:table-cell">Views</th>
+                  <th className="py-4 font-bold text-center hidden sm:table-cell">Likes</th>
+                  <th className="py-1.5 font-bold text-right hidden md:table-cell">Growth Rank</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-sun-border/20">
                 {isLoading ? [1,2,3].map(i => (
                   <tr key={i} className="animate-pulse">
                     <td className="py-4"><div className="w-44 h-8 bg-slate-100 dark:bg-slate-800 rounded" /></td>
-                    <td className="py-4"><div className="w-12 h-4 bg-slate-100 dark:bg-slate-800 rounded mx-auto" /></td>
-                    <td className="py-4"><div className="w-10 h-4 bg-slate-100 dark:bg-slate-800 rounded mx-auto" /></td>
-                    <td className="py-4"><div className="w-24 h-3 bg-slate-100 dark:bg-slate-800 rounded ml-auto" /></td>
+                    <td className="py-4 hidden sm:table-cell"><div className="w-12 h-4 bg-slate-100 dark:bg-slate-800 rounded mx-auto" /></td>
+                    <td className="py-4 hidden sm:table-cell"><div className="w-10 h-4 bg-slate-100 dark:bg-slate-800 rounded mx-auto" /></td>
+                    <td className="py-4 hidden md:table-cell"><div className="w-24 h-3 bg-slate-100 dark:bg-slate-800 rounded ml-auto" /></td>
                   </tr>
                 )) : ANALYTICS_MOCK_DATA.topContent.map((post) => (
                   <tr key={post.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors">
-                    <td className="py-4 min-w-[200px]">
-                      <div className="flex items-center gap-4">
+                    <td className="py-4 pr-2">
+                      <div className="flex items-center gap-3 sm:gap-4">
                         <img 
                           src={post.thumbnail} 
                           alt="Thumbnail" 
-                          className="w-11 h-11 rounded-lg object-cover border border-sun-border/30 group-hover:scale-105 transition-transform shrink-0" 
+                          className="w-12 h-12 sm:w-11 sm:h-11 rounded-lg object-cover border border-sun-border/30 group-hover:scale-105 transition-transform shrink-0" 
                           referrerPolicy="no-referrer"
                         />
-                        <span className="font-bold text-sun-text-main group-hover:text-sun-primary transition-colors line-clamp-2 leading-tight">
-                          {post.title}
-                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold text-sun-text-main group-hover:text-sun-primary transition-colors line-clamp-2 leading-tight text-xs sm:text-sm">
+                            {post.title}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1 sm:hidden text-[9px] text-sun-text-muted font-bold tracking-wider uppercase">
+                            <span>{post.views} views</span>
+                            <span className="text-sun-primary">•</span>
+                            <span>{post.likes} likes</span>
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td className="py-4 text-center font-mono font-bold text-sun-text-main">{post.views}</td>
-                    <td className="py-4 text-center font-mono font-medium text-sun-text-muted">{post.likes}</td>
-                    <td className="py-4 text-right">
+                    <td className="py-4 text-center font-mono font-bold text-sun-text-main hidden sm:table-cell">{post.views}</td>
+                    <td className="py-4 text-center font-mono font-medium text-sun-text-muted hidden sm:table-cell">{post.likes}</td>
+                    <td className="py-4 text-right hidden md:table-cell">
                       <div className="inline-flex items-center gap-2">
                         <div className="h-1.5 w-16 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                           <motion.div 
@@ -364,7 +381,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300"
+            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-4 sm:p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300"
           >
             <div className="flex items-center gap-3.5 mb-6">
               <div className="p-2.5 bg-sun-primary/10 text-sun-primary rounded-xl shrink-0">
@@ -405,7 +422,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 relative"
+            className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-4 sm:p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 relative"
           >
             <div className="flex items-center gap-3.5 mb-6">
               <div className="p-2.5 bg-sun-secondary/10 text-sun-secondary rounded-xl shrink-0">
@@ -418,7 +435,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
             </div>
 
             <div className="h-[140px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={ANALYTICS_MOCK_DATA.audience.gender}
@@ -457,9 +474,9 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
 
             <div className="grid grid-cols-3 gap-2 mt-2">
               {ANALYTICS_MOCK_DATA.audience.gender.map((gender, idx) => (
-                <div key={gender.name} className="flex flex-col items-center p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-gray-100 dark:border-sun-border/30 rounded-lg text-center">
+                <div key={gender.name} className="flex flex-col items-center p-2 sm:p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-gray-100 dark:border-sun-border/30 rounded-lg text-center">
                   <div className="w-2 h-2 rounded-full mb-1" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                  <span className="text-[9px] font-bold text-sun-text-muted uppercase leading-tight">{gender.name}</span>
+                  <span className="text-[9px] font-bold text-sun-text-muted uppercase leading-tight truncate w-full">{gender.name}</span>
                   <span className="text-[11px] font-bold text-sun-text-main tracking-tight mt-0.5">{gender.value}%</span>
                 </div>
               ))}

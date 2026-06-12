@@ -35,27 +35,27 @@ interface Section {
 
 const mockCurriculum: Section[] = [
   {
-    title: 'Introduction to Wisdom Architecture',
+    title: 'Storytelling Fundamentals',
     lessons: [
-      { title: 'The Philosophy of Scaling Knowledge', duration: '12:45', isPreview: true },
-      { title: 'Defining Your Wisdom Core', duration: '08:20', isPreview: true },
-      { title: 'Cognitive Load & Transfer Dynamics', duration: '15:10' },
+      { title: 'The 3-Second Hook Method', duration: '12:45', isPreview: true },
+      { title: 'Designing Your Creator Style & Flow', duration: '08:20', isPreview: true },
+      { title: 'Lighting & Beautiful Frame Setup', duration: '15:10' },
     ]
   },
   {
-    title: 'Designing for Information Growth',
+    title: 'Short-Form Video Production',
     lessons: [
-      { title: 'Modular Content Systems', duration: '22:15' },
-      { title: 'The Loop: Feedback as Fuel', duration: '18:40' },
-      { title: 'Iterative Refinement of Expert Models', duration: '25:30' },
+      { title: 'Dynamic Trimming & Jump-Cuts', duration: '22:15' },
+      { title: 'Adding Engaging Visual Text Overlays', duration: '18:40' },
+      { title: 'Music Sync & Layering Ambient Sounds', duration: '25:30' },
     ]
   },
   {
-    title: 'Technical Implementation',
+    title: 'Growing Your Friendly Audience',
     lessons: [
-      { title: 'Korusa API Ecosystem', duration: '30:00' },
-      { title: 'Secure Distribution of Proprietary IP', duration: '12:10' },
-      { title: 'Auto-scaling Mentorship with AI', duration: '45:00' },
+      { title: 'Connecting Back with Your Followers', duration: '30:00' },
+      { title: 'Hosting Q&As & Friendly Huddles', duration: '12:10' },
+      { title: 'Designing Collaborative Duet Spark Scripts', duration: '45:00' },
     ]
   }
 ];
@@ -69,9 +69,9 @@ export const CourseDetailView = ({ onBack, onStartLearning }: { onBack: () => vo
         <BackButton onClick={onBack} label="Courses" sticky />
         {/* Breadcrumbs / Back */}
         <nav className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-sun-text-muted">
-          <span className="opacity-70">Design Systems</span>
+          <span className="opacity-70">Photography & Video</span>
           <span className="opacity-30">/</span>
-          <span className="text-white truncate max-w-[150px] sm:max-w-none">Scaling Wisdom</span>
+          <span className="text-white truncate max-w-[150px] sm:max-w-none">Short-Form Magic</span>
         </nav>
       </div>
 
@@ -90,19 +90,19 @@ export const CourseDetailView = ({ onBack, onStartLearning }: { onBack: () => vo
             </div>
             
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-display font-bold leading-tight tracking-tight">
-              Scaling Wisdom: The Architecture of Expert Systems
+              Short-Form Magic: Filming & Editing Sparks
             </h1>
             
             <p className="text-sm sm:text-lg text-sun-text-muted leading-relaxed max-w-2xl font-medium">
-              Learn how to decompose complex expert knowledge into scalable, interactive systems that empower thousands without losing nuance.
+              Learn how to tell stories, structure ideas, use creative camera angles, and build a vibrant community around your passion in under a minute.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-2 sm:pt-4">
               <div className="flex items-center gap-3">
-                <Avatar size="sm" src="https://i.pravatar.cc/150?u=12" />
+                <Avatar size="sm" src="https://i.pravatar.cc/150?u=sarah" />
                 <div className="text-[10px] sm:text-xs">
                   <p className="text-sun-text-muted font-medium mb-0.5">Created by</p>
-                  <p className="font-bold text-white hover:text-sun-primary cursor-pointer">Alex Rivera</p>
+                  <p className="font-bold text-white hover:text-sun-primary cursor-pointer">Sarah Chen</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export const CourseDetailView = ({ onBack, onStartLearning }: { onBack: () => vo
               </div>
               <div className="flex items-center gap-2">
                 <Calendar size={16} className="text-sun-text-muted" />
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">04/2026</span>
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Recent Update</span>
               </div>
             </div>
           </div>
@@ -142,12 +142,12 @@ export const CourseDetailView = ({ onBack, onStartLearning }: { onBack: () => vo
             <h2 className="text-xl sm:text-2xl font-display font-bold">What you'll learn</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {[
-                'Build resilient design systems for multi-modal knowledge delivery',
-                'Implement the AI-Augmented Wisdom Loop in existing workflows',
-                'Deconstruct tacit expert knowledge into explicit mental models',
-                'Scale mentorship through automated, contextual feedback chains',
-                'Measure the ROI of intellectual property scaling at the enterprise level',
-                'Design intuitive interfaces for deep information absorption'
+                'Tell authentic, high-impact stories in under 60 seconds',
+                'Design clean, eye-catching text overlays and subtitles',
+                'Capture high-quality video and crystal-clear audio on mobile',
+                'Build a warm, supportive community around your passion',
+                'Pace your edits perfectly to music and visual beats',
+                'Design unique cover assets and styled video grids'
               ].map((item, i) => (
                 <div key={i} className="flex gap-3">
                   <div className="shrink-0 mt-1">
@@ -283,21 +283,21 @@ export const CourseDetailView = ({ onBack, onStartLearning }: { onBack: () => vo
       <section className="space-y-10 pt-20 border-t border-sun-border/50">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 text-center sm:text-left">
           <div className="space-y-2">
-            <h2 className="text-3xl font-display font-bold">What practitioners say</h2>
-            <p className="text-sun-text-muted text-sm font-medium">Trusted by teams at Figma, Stripe, and Vercel.</p>
+            <h2 className="text-3xl font-display font-bold">What other creators say</h2>
+            <p className="text-sun-text-muted text-sm font-medium">Trusted by a community of over 50,000 creative minds.</p>
           </div>
           <div className="flex flex-col items-center sm:items-end">
             <div className="flex items-center gap-1.5 mb-1">
               {[1,2,3,4,5].map(i => <Star key={i} size={20} className="text-sun-primary fill-sun-primary" />)}
             </div>
-            <p className="text-xs font-bold uppercase tracking-widest text-white">4.9 Average Rating</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-white">4.9 Creator Rating</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
            {[
-             { name: 'Marcus T.', role: 'Head of Product', comment: "This completely changed how we think about internal documentation. Knowledge flows so much faster now." },
-             { name: 'Elena Ray', role: 'Design Lead', comment: "The module on tacit knowledge deconstruction is absolute gold. Never seen this level of depth elsewhere." }
+             { name: 'Marcus T.', role: 'Travel Filmmaker', comment: "This completely changed how I script and frame my Sparks. My focus is so much better now and my community grew overnight!" },
+             { name: 'Elena Ray', role: 'VFX & Design Hobbyist', comment: "The module on visual pacing and sound hooks is absolute gold. It is so easy to follow and incredibly fun to practice!" }
            ].map((review, i) => (
              <div key={i} className="glass-card p-8 rounded-[2.5rem] space-y-4">
                 <div className="flex items-center gap-1 mb-2">

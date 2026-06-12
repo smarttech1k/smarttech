@@ -28,8 +28,8 @@ export const useUIStore = create<UIState>((set) => ({
   isAuthenticated: false,
   setAuthenticated: (value) => set({ isAuthenticated: value }),
   
-  // Theme - Default to dark as seen in previous steps
-  isDarkMode: true,
+  // Theme - Default to light
+  isDarkMode: false,
   toggleTheme: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
   
   // Sidebar

@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Chrome, Apple, Sun } from 'lucide-react';
 import { useUIStore } from '../../../store/uiStore';
-import { KorusaLogo } from '../../shared/Logo';
+import { KorusaLogo, KorusaIcon } from '../../shared/Logo';
 
 // --- Reusable Components ---
 
@@ -51,11 +51,15 @@ const AuthCard = ({ onLogin }: { onLogin: () => void }) => {
       <div className="absolute inset-0 bg-gradient-to-b from-sun-primary/[0.03] to-transparent pointer-events-none"></div>
       
       <div className="relative z-10">
-        <div className="mb-10 text-center md:text-left">
-          <h2 className="text-2xl font-display font-black tracking-tighter uppercase text-sun-text-main">
+        {/* Instagram-style Centered Premium App Logo & Header */}
+        <div className="flex flex-col items-center justify-center mb-8 text-center">
+          <div className="mb-4 hover:scale-105 transition-all duration-300 flex items-center justify-center drop-shadow-[0_10px_25px_rgba(234,179,8,0.2)] animate-pulse-subtle">
+            <KorusaIcon size={76} />
+          </div>
+          <h2 className="font-display font-black tracking-[0.2em] text-2xl uppercase text-sun-text-main leading-none">
             {isLogin ? 'Welcome Back' : 'Get Started'}
           </h2>
-          <p className="text-sun-text-muted text-xs font-bold tracking-tight mt-1 truncate">
+          <p className="text-sun-text-muted text-xs font-bold tracking-tight mt-2.5 max-w-[280px]">
             {isLogin ? "Log in to see what's happening." : "Create your account in seconds."}
           </p>
         </div>
@@ -170,18 +174,9 @@ export const LandingView = () => {
         {/* Left Side: Branding & Image */}
         <section className="flex-1 space-y-12 flex flex-col items-center md:items-start max-w-xl text-center md:text-left">
           <div className="space-y-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-sun-primary/10 border border-sun-primary/30 text-sun-primary text-[10px] font-black uppercase tracking-[0.2em]"
-            >
-              <div className="w-1.5 h-1.5 rounded-full bg-sun-primary animate-pulse" />
-              Connect with your world
-            </motion.div>
-            
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-black text-sun-text-main tracking-tighter leading-[0.85]">
-              Connect. Share.<br />
-              <span className="text-sun-primary italic drop-shadow-[0_0_20px_rgba(234,179,8,0.2)]">Grow.</span>
+              Where opportunity <br />
+              <span className="text-sun-primary italic drop-shadow-[0_0_20px_rgba(234,179,8,0.2)]">meets creativity.</span>
             </h1>
             <p className="text-lg md:text-xl text-sun-text-muted font-medium leading-relaxed tracking-tight max-w-md mx-auto md:mx-0">
               Join a vibrant community where you can connect with friends, learn new skills, and share your journey together.

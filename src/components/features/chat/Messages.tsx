@@ -262,7 +262,7 @@ export const MessagesView = () => {
         {/* Chat Window */}
         <main className={`
           flex-1 flex-col bg-sun-bg relative z-10
-          ${selectedChatId ? 'flex' : 'hidden md:flex items-center justify-center'}
+          ${selectedChatId ? 'flex' : 'hidden md:flex items-center justify-start pt-20 sm:pt-32'}
         `}>
           {activeChat ? (
             <div className="flex flex-col h-full bg-sun-bg">
@@ -426,16 +426,7 @@ export const MessagesView = () => {
               >
                 <Send className="w-9 h-9 sm:w-11 sm:h-11 translate-x-1 -translate-y-1" strokeWidth={2.5} />
               </motion.div>
-              <h2 className="text-2xl sm:text-3xl font-black text-sun-text-main tracking-tighter uppercase italic leading-tight mb-3">Sync <span className="text-sun-primary">Control</span></h2>
-              <p className="text-[12px] sm:text-[13px] text-sun-text-muted font-medium opacity-60 leading-relaxed mb-8 italic px-4">
-                Choose a priority connection to initialize the messaging protocol and start sharing data across the pulse network.
-              </p>
-              <Button 
-                onClick={() => {}}
-                className="w-full !rounded-2xl py-5 sm:py-6 bg-sun-primary text-white hover:bg-sun-secondary hover:text-white shadow-xl shadow-sun-primary/10 font-bold uppercase tracking-[0.1em] text-[10px] sm:text-[11px] transition-all active:scale-95 border-none"
-              >
-                Launch Discovery
-              </Button>
+              <h2 className="text-2xl sm:text-3xl font-black text-sun-text-main tracking-tighter uppercase italic leading-tight mb-3">chat with friends.</h2>
             </div>
           )}
         </main>
