@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
+import { apiRequest } from '../../../lib/api';
+import { useUIStore } from '../../../store/uiStore';
 
 // --- Types ---
 
@@ -42,43 +44,44 @@ interface Chat {
   unreadCount: number;
 }
 
-// --- Dummy Data ---
+interface BackendConversation {
+  id: string;
+  participant_details: Array<{
+    user_id: string;
+    name: string;
+    avatar?: string;
+    online?: boolean;
+    last_seen?: string;
+  }>;
+  last_message: string;
+  last_message_time?: string | null;
+  unread_count: number;
+}
 
-const DUMMY_CHATS: Chat[] = [
-  {
-    id: '1',
-    user: { name: 'Sarah Smith', avatar: 'https://i.pravatar.cc/150?u=2', online: true, lastSeen: 'Active now' },
-    lastMessage: "I'm working on something cool",
-    lastMessageTime: '4:15 PM',
-    unreadCount: 2
-  },
-  {
-    id: '2',
-    user: { name: 'John Doe', avatar: 'https://i.pravatar.cc/150?u=1', online: false, lastSeen: '2h ago' },
-    lastMessage: 'Nice, tell me more',
-    lastMessageTime: 'Yesterday',
-    unreadCount: 0
-  },
-  {
-    id: '3',
-    user: { name: 'Dante Rivers', avatar: 'https://i.pravatar.cc/150?u=3', online: true, lastSeen: 'Active now' },
-    lastMessage: 'Check this out!',
-    lastMessageTime: 'Tuesday',
-    unreadCount: 0
-  }
-];
+interface UserSearchResult {
+  id: string;
+  username: string;
+  full_name?: string;
+  avatar_url?: string;
+}
 
-const DUMMY_MESSAGES: Record<string, Message[]> = {
-  '1': [
-    { id: '1', text: 'Hey, how are you?', sender: 'other', timestamp: '4:10 PM', status: 'read' },
-    { id: '2', text: "I'm working on something cool", sender: 'other', timestamp: '4:11 PM', status: 'read' },
-    { id: '3', text: 'Nice, tell me more!', sender: 'me', timestamp: '4:15 PM', status: 'read' },
-  ],
-  '2': [
-    { id: '1', text: 'Hey John, check the update.', sender: 'me', timestamp: 'Yesterday', status: 'read' },
-    { id: '2', text: 'Nice, tell me more', sender: 'other', timestamp: 'Yesterday', status: 'read' },
-  ]
-};
+interface BackendMessage {
+  id: string;
+  sender_id: string;
+  text: string;
+  created_at: string;
+  status: 'sent' | 'delivered' | 'read';
+}
+
+interface BackendCall {
+  id: string;
+  conversation_id: string;
+  caller_id: string;
+  callee_id: string;
+  kind: 'audio' | 'video';
+  state: 'ringing' | 'active' | 'ended';
+  created_at: string;
+}
 
 // --- Components ---
 
@@ -171,15 +174,45 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isFirst, isLast }) =
   );
 };
 
-export const MessagesView = () => {
+export const MessagesView = ({ onBack }: { onBack?: () => void }) => {
   const navigate = useNavigate();
+  const { authToken, currentUser } = useUIStore();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [messages, setMessages] = useState(DUMMY_MESSAGES);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [chats, setChats] = useState<Chat[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [activeCall, setActiveCall] = useState<BackendCall | null>(null);
+  const [callMode, setCallMode] = useState<'audio' | 'video' | null>(null);
+  const [callStatus, setCallStatus] = useState('');
+  const [callLoading, setCallLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<EventSource | null>(null);
+  const callStreamRef = useRef<EventSource | null>(null);
+  const incomingCallStreamRef = useRef<EventSource | null>(null);
+  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const localMediaRef = useRef<MediaStream | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  const activeChat = DUMMY_CHATS.find(c => c.id === selectedChatId);
+  const activeChat = chats.find(c => c.id === selectedChatId);
   const activeMessages = selectedChatId ? messages[selectedChatId] || [] : [];
+
+  const upsertThreadMessage = (chatId: string, nextMessage: Message) => {
+    setMessages((prev) => {
+      const existing = prev[chatId] || [];
+      if (existing.some((message) => message.id === nextMessage.id)) return prev;
+      return {
+        ...prev,
+        [chatId]: [...existing, nextMessage],
+      };
+    });
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -187,22 +220,471 @@ export const MessagesView = () => {
     }
   }, [selectedChatId, messages]);
 
+  useEffect(() => {
+    if (streamRef.current) {
+      streamRef.current.close();
+      streamRef.current = null;
+    }
+
+    if (!selectedChatId || !authToken) return;
+
+    const streamUrl = `${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/chat/conversations/${selectedChatId}/stream?access_token=${encodeURIComponent(authToken)}`;
+    const stream = new EventSource(streamUrl);
+    streamRef.current = stream;
+
+    stream.addEventListener('message', (event) => {
+      try {
+        const payload = JSON.parse((event as MessageEvent).data) as BackendMessage;
+        const nextMessage: Message = {
+          id: payload.id,
+          text: payload.text,
+          sender: payload.sender_id === currentUser?.id ? 'me' : 'other',
+          timestamp: new Date(payload.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: payload.status,
+        };
+
+        upsertThreadMessage(selectedChatId, nextMessage);
+
+        setChats((prev) => prev.map((chat) => chat.id === selectedChatId ? {
+          ...chat,
+          lastMessage: nextMessage.text,
+          lastMessageTime: nextMessage.timestamp,
+        } : chat));
+      } catch {
+        // Ignore malformed stream messages.
+      }
+    });
+
+    stream.onerror = () => {
+      stream.close();
+    };
+
+    return () => {
+      stream.close();
+      if (streamRef.current === stream) {
+        streamRef.current = null;
+      }
+    };
+  }, [selectedChatId, authToken, currentUser?.id]);
+
+  useEffect(() => {
+    return () => {
+      callStreamRef.current?.close();
+      incomingCallStreamRef.current?.close();
+      peerRef.current?.close();
+      localMediaRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  useEffect(() => {
+    if (incomingCallStreamRef.current) {
+      incomingCallStreamRef.current.close();
+      incomingCallStreamRef.current = null;
+    }
+
+    if (!authToken) return;
+
+    const streamUrl = `${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/chat/calls/incoming/stream?access_token=${encodeURIComponent(authToken)}`;
+    const stream = new EventSource(streamUrl);
+    incomingCallStreamRef.current = stream;
+
+    stream.addEventListener('message', (event) => {
+      try {
+        const payload = JSON.parse((event as MessageEvent).data) as { type?: string; call?: BackendCall };
+        if (payload.type === 'incoming-call' && payload.call) {
+          setActiveCall(payload.call);
+          setCallMode(payload.call.kind);
+          setCallStatus('Incoming call');
+        }
+      } catch {
+        // Ignore malformed call invite events.
+      }
+    });
+
+    stream.onerror = () => {
+      stream.close();
+    };
+
+    return () => {
+      stream.close();
+      if (incomingCallStreamRef.current === stream) {
+        incomingCallStreamRef.current = null;
+      }
+    };
+  }, [authToken]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadChats = async () => {
+      if (!authToken) {
+        setLoadingChats(false);
+        return;
+      }
+      try {
+        const response = await apiRequest<{ conversations: BackendConversation[] }>('/chat/conversations', {}, authToken);
+        if (!mounted) return;
+        const nextChats: Chat[] = response.conversations.map((conversation, index) => {
+          const other = conversation.participant_details.find((participant) => participant.user_id !== currentUser?.id)
+            ?? conversation.participant_details[0];
+          return {
+            id: conversation.id,
+            user: {
+              name: other?.name || `Chat ${index + 1}`,
+              avatar: other?.avatar || `https://i.pravatar.cc/150?u=${conversation.id}`,
+              online: Boolean(other?.online),
+              lastSeen: other?.last_seen || 'Recently active',
+            },
+            lastMessage: conversation.last_message || 'No messages yet',
+            lastMessageTime: conversation.last_message_time ? new Date(conversation.last_message_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now',
+            unreadCount: conversation.unread_count || 0,
+          };
+        });
+        setChats(nextChats);
+      } catch {
+        setChats([]);
+      } finally {
+        if (mounted) setLoadingChats(false);
+      }
+    };
+    loadChats();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken, currentUser?.id]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadMessages = async () => {
+      if (!selectedChatId || !authToken) {
+        return;
+      }
+      setLoadingMessages(true);
+      setError('');
+      try {
+        const response = await apiRequest<{ messages: BackendMessage[] }>(
+          `/chat/conversations/${selectedChatId}/messages`,
+          {},
+          authToken,
+        );
+        if (!mounted) return;
+        const nextMessages: Message[] = response.messages.map((message) => ({
+          id: message.id,
+          text: message.text,
+          sender: message.sender_id === currentUser?.id ? 'me' : 'other',
+          timestamp: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: message.status,
+        }));
+        setMessages((prev) => ({
+          ...prev,
+          [selectedChatId]: nextMessages,
+        }));
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Unable to load messages');
+          setMessages((prev) => ({
+            ...prev,
+            [selectedChatId]: [],
+          }));
+        }
+      } finally {
+        if (mounted) setLoadingMessages(false);
+      }
+    };
+    loadMessages();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedChatId, authToken, currentUser?.id]);
+
+  useEffect(() => {
+    let mounted = true;
+    const runSearch = async () => {
+      const query = searchQuery.trim();
+      if (!query || !authToken) {
+        setSearchResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        const response = await apiRequest<{ users: UserSearchResult[] }>(`/chat/search?q=${encodeURIComponent(query)}`, {}, authToken);
+        if (mounted) setSearchResults(response.users || []);
+      } catch {
+        if (mounted) setSearchResults([]);
+      } finally {
+        if (mounted) setSearching(false);
+      }
+    };
+    const timer = window.setTimeout(runSearch, 250);
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery, authToken]);
+
+  const openConversationWithUser = async (user: UserSearchResult) => {
+    if (!authToken) return;
+    try {
+      const response = await apiRequest<{ conversation: { id: string } }>(
+        '/chat/conversations',
+        {
+          method: 'POST',
+          body: JSON.stringify({ userId: user.id }),
+        },
+        authToken,
+      );
+      setSelectedChatId(response.conversation.id);
+      setSearchQuery('');
+      setSearchResults([]);
+      setChats((prev) => {
+        if (prev.some((chat) => chat.id === response.conversation.id)) return prev;
+        return [{
+          id: response.conversation.id,
+          user: {
+            name: user.full_name || user.username,
+            avatar: user.avatar_url || `https://i.pravatar.cc/150?u=${user.username}`,
+            online: false,
+            lastSeen: 'Recently',
+          },
+          lastMessage: 'Say hello',
+          lastMessageTime: 'Now',
+          unreadCount: 0,
+        }, ...prev];
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to start conversation');
+    }
+  };
+
   const handleSendMessage = () => {
     if (!inputValue.trim() || !selectedChatId) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: 'me',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'sent'
-    };
+    if (!authToken) return;
 
-    setMessages(prev => ({
-      ...prev,
-      [selectedChatId]: [...(prev[selectedChatId] || []), newMessage]
-    }));
+    const text = inputValue.trim();
     setInputValue('');
+
+    apiRequest<BackendMessage>(
+      `/chat/conversations/${selectedChatId}/messages`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ text, message_type: 'text' }),
+      },
+      authToken,
+    ).then((result) => {
+      const savedMessage: Message = {
+        id: result.id,
+        text: result.text,
+        sender: result.sender_id === currentUser?.id ? 'me' : 'other',
+        timestamp: new Date(result.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: result.status,
+      };
+      upsertThreadMessage(selectedChatId, savedMessage);
+      setChats((prev) => prev.map((chat) => chat.id === selectedChatId ? {
+        ...chat,
+        lastMessage: savedMessage.text,
+        lastMessageTime: savedMessage.timestamp,
+      } : chat));
+    }).catch(() => {
+      setMessages((prev) => ({
+        ...prev,
+        [selectedChatId]: [...(prev[selectedChatId] || [])],
+      }));
+    });
+  };
+
+  const closeCallSession = async () => {
+    if (!activeCall || !authToken) return;
+    try {
+      await apiRequest(`/chat/calls/${activeCall.id}/end`, { method: 'PATCH' }, authToken);
+    } catch {
+      // Ignore end errors during teardown.
+    }
+    callStreamRef.current?.close();
+    callStreamRef.current = null;
+    peerRef.current?.close();
+    peerRef.current = null;
+    localMediaRef.current?.getTracks().forEach((track) => track.stop());
+    localMediaRef.current = null;
+    setActiveCall(null);
+    setCallMode(null);
+    setCallStatus('');
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+  };
+
+  const acceptIncomingCall = async () => {
+    if (!activeCall || !authToken) return;
+    setCallLoading(true);
+    setCallStatus('Connecting...');
+    try {
+      const media = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: activeCall.kind === 'video',
+      });
+      localMediaRef.current = media;
+      if (localVideoRef.current) localVideoRef.current.srcObject = media;
+
+      const peer = new RTCPeerConnection({
+        iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
+      });
+      peerRef.current = peer;
+      media.getTracks().forEach((track) => peer.addTrack(track, media));
+
+      peer.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      peer.onicecandidate = async (event) => {
+        if (!event.candidate || !authToken) return;
+        await apiRequest(`/chat/calls/${activeCall.id}/signal`, {
+          method: 'POST',
+          body: JSON.stringify({ signal: { candidate: event.candidate } }),
+        }, authToken);
+      };
+
+      callStreamRef.current?.close();
+      const streamUrl = `${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/chat/calls/${activeCall.id}/stream?access_token=${encodeURIComponent(authToken)}`;
+      const callStream = new EventSource(streamUrl);
+      callStreamRef.current = callStream;
+
+      callStream.addEventListener('message', async (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data) as { type?: string; signal?: { type?: string; sdp?: string; candidate?: RTCIceCandidateInit } };
+          if (payload.type === 'signal' && payload.signal?.type === 'offer' && payload.signal?.sdp) {
+            await peer.setRemoteDescription({ type: 'offer', sdp: payload.signal.sdp });
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            await apiRequest(`/chat/calls/${activeCall.id}/signal`, {
+              method: 'POST',
+              body: JSON.stringify({
+                signal: {
+                  type: 'answer',
+                  sdp: answer.sdp,
+                },
+              }),
+            }, authToken);
+            setCallStatus('Connected');
+          }
+          if (payload.type === 'signal' && payload.signal?.type === 'answer' && payload.signal?.sdp) {
+            await peer.setRemoteDescription({ type: 'answer', sdp: payload.signal.sdp });
+            setCallStatus('Connected');
+          }
+          if (payload.type === 'signal' && payload.signal?.candidate) {
+            await peer.addIceCandidate(payload.signal.candidate);
+          }
+          if (payload.type === 'ended') {
+            setCallStatus('Call ended');
+            await closeCallSession();
+          }
+        } catch {
+          // Ignore malformed call events.
+        }
+      });
+
+      callStream.onerror = () => {
+        setCallStatus('Call stream disconnected');
+      };
+    } catch (err) {
+      setCallStatus(err instanceof Error ? err.message : 'Unable to accept call');
+      await closeCallSession();
+    } finally {
+      setCallLoading(false);
+    }
+  };
+
+  const startCall = async (kind: 'audio' | 'video') => {
+    if (!selectedChatId || !authToken) return;
+    setCallLoading(true);
+    setCallStatus(kind === 'video' ? 'Starting video call...' : 'Starting voice call...');
+    try {
+      const callResponse = await apiRequest<{ call: BackendCall }>(
+        `/chat/conversations/${selectedChatId}/calls`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ kind }),
+        },
+        authToken,
+      );
+      const call = callResponse.call;
+      setActiveCall(call);
+      setCallMode(kind);
+
+      const media = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: kind === 'video',
+      });
+      localMediaRef.current = media;
+      if (localVideoRef.current) localVideoRef.current.srcObject = media;
+
+      const peer = new RTCPeerConnection({
+        iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
+      });
+      peerRef.current = peer;
+      media.getTracks().forEach((track) => peer.addTrack(track, media));
+
+      peer.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      peer.onicecandidate = async (event) => {
+        if (!event.candidate || !authToken) return;
+        await apiRequest(`/chat/calls/${call.id}/signal`, {
+          method: 'POST',
+          body: JSON.stringify({ signal: { candidate: event.candidate } }),
+        }, authToken);
+      };
+
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      await apiRequest(`/chat/calls/${call.id}/signal`, {
+        method: 'POST',
+        body: JSON.stringify({
+          signal: {
+            type: 'offer',
+            sdp: offer.sdp,
+            kind,
+          },
+        }),
+      }, authToken);
+
+      callStreamRef.current?.close();
+      const streamUrl = `${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/chat/calls/${call.id}/stream?access_token=${encodeURIComponent(authToken)}`;
+      const callStream = new EventSource(streamUrl);
+      callStreamRef.current = callStream;
+      setCallStatus('Calling...');
+
+      callStream.addEventListener('message', async (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data) as { type?: string; signal?: any; call_id?: string; ended_by?: string };
+          if (payload.type === 'signal' && payload.signal?.type === 'answer' && payload.signal?.sdp) {
+            await peer.setRemoteDescription({ type: 'answer', sdp: payload.signal.sdp });
+            setCallStatus('Connected');
+          }
+          if (payload.type === 'signal' && payload.signal?.candidate) {
+            await peer.addIceCandidate(payload.signal.candidate);
+          }
+          if (payload.type === 'ended') {
+            setCallStatus('Call ended');
+            await closeCallSession();
+          }
+        } catch {
+          // Ignore malformed call events.
+        }
+      });
+
+      callStream.onerror = () => {
+        setCallStatus('Call stream disconnected');
+      };
+    } catch (err) {
+      setCallStatus(err instanceof Error ? err.message : 'Unable to start call');
+      await closeCallSession();
+    } finally {
+      setCallLoading(false);
+    }
   };
 
   return (
@@ -218,7 +700,7 @@ export const MessagesView = () => {
             <div className="flex items-center justify-between mb-5 sm:mb-6">
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => navigate('/')}
+                  onClick={onBack || (() => navigate('/'))}
                   className="p-2 -ml-2 text-sun-text-muted hover:text-sun-text-main active:bg-sun-text-main/5 rounded-xl transition-colors"
                 >
                   <ChevronLeft size={20} />
@@ -240,15 +722,43 @@ export const MessagesView = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-sun-text-muted group-focus-within:text-sun-primary transition-colors" size={16} />
               <input 
                 type="text" 
-                placeholder="Search Synapses..."
+                placeholder="Search username to message..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-sun-text-main/[0.03] border border-sun-border rounded-xl sm:rounded-2xl py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-xs sm:text-sm font-medium focus:outline-none focus:border-sun-primary/30 transition-all placeholder:text-sun-text-main/20"
               />
+              {(searchQuery.trim().length > 0) && (
+                <div className="absolute top-full mt-2 w-full bg-sun-surface border border-sun-border rounded-2xl shadow-2xl overflow-hidden z-20">
+                  {searching ? (
+                    <div className="px-4 py-3 text-xs text-sun-text-muted">Searching users...</div>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((user) => (
+                      <button
+                        key={user.id}
+                        onClick={() => openConversationWithUser(user)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors"
+                      >
+                        <Avatar size="sm" src={user.avatar_url || `https://i.pravatar.cc/150?u=${user.username}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold truncate">{user.full_name || user.username}</p>
+                          <p className="text-[10px] text-sun-text-muted truncate">@{user.username}</p>
+                        </div>
+                        <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-sun-primary">Message</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-xs text-sun-text-muted">No users found.</div>
+                  )}
+                </div>
+              )}
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-4 scrollbar-hide space-y-1">
-            <div className="px-4 mb-3 sm:mb-4 text-[9px] font-black text-sun-text-muted uppercase tracking-[0.3em] opacity-40">Active Nodes</div>
-            {DUMMY_CHATS.map((chat) => (
+            <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-4 scrollbar-hide space-y-1">
+              <div className="px-4 mb-3 sm:mb-4 text-[9px] font-black text-sun-text-muted uppercase tracking-[0.3em] opacity-40">Active Nodes</div>
+            {loadingChats ? (
+              <div className="px-4 py-6 text-sm text-sun-text-muted">Loading conversations...</div>
+            ) : chats.map((chat) => (
               <ChatListItem 
                 key={chat.id} 
                 chat={chat} 
@@ -264,8 +774,9 @@ export const MessagesView = () => {
           flex-1 flex-col bg-sun-bg relative z-10
           ${selectedChatId ? 'flex' : 'hidden md:flex items-center justify-start pt-20 sm:pt-32'}
         `}>
-          {activeChat ? (
-            <div className="flex flex-col h-full bg-sun-bg">
+              {activeChat ? (
+                <>
+                <div className="flex flex-col h-full bg-sun-bg">
               {/* Chat Header */}
               <header className="h-16 sm:h-20 px-4 sm:px-6 lg:px-8 border-b border-sun-border flex items-center justify-between shrink-0 bg-sun-bg/80 backdrop-blur-3xl z-30 sticky top-0">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -292,10 +803,18 @@ export const MessagesView = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2">
-                  <button className="p-2 sm:p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border">
+                  <button
+                    onClick={() => startCall('audio')}
+                    disabled={callLoading}
+                    className="p-2 sm:p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border disabled:opacity-50"
+                  >
                     <Phone className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
                   </button>
-                  <button className="p-2 sm:p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border">
+                  <button
+                    onClick={() => startCall('video')}
+                    disabled={callLoading}
+                    className="p-2 sm:p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border disabled:opacity-50"
+                  >
                     <Video className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
                   </button>
                   <button className="hidden sm:flex p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border">
@@ -332,6 +851,16 @@ export const MessagesView = () => {
                 </div>
 
                 <div className="flex-1">
+                  {error && (
+                    <div className="mx-4 sm:mx-0 mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                      {error}
+                    </div>
+                  )}
+                  {loadingMessages && (
+                    <div className="mx-4 sm:mx-0 mb-4 rounded-2xl border border-sun-border bg-sun-surface px-4 py-3 text-sm text-sun-text-muted">
+                      Loading messages...
+                    </div>
+                  )}
                   <AnimatePresence mode="popLayout">
                     {activeMessages.map((msg, index) => {
                       const prevMsg = activeMessages[index - 1];
@@ -410,6 +939,41 @@ export const MessagesView = () => {
                 </div>
               </div>
             </div>
+            <AnimatePresence>
+              {activeCall && (
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 24 }}
+                  className="fixed inset-x-4 bottom-4 md:inset-x-auto md:right-6 md:bottom-6 z-50 rounded-3xl border border-sun-border bg-sun-surface shadow-2xl overflow-hidden max-w-4xl"
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-sun-border">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.25em] text-sun-text-muted">Call {activeCall.kind}</p>
+                      <p className="text-sm font-semibold text-sun-text-main">{callStatus || activeCall.state}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {callStatus === 'Incoming call' && (
+                        <Button onClick={acceptIncomingCall} className="bg-green-500 hover:bg-green-600 text-white">
+                          Accept
+                        </Button>
+                      )}
+                      <Button onClick={closeCallSession} className="bg-red-500 hover:bg-red-600 text-white">
+                        {callStatus === 'Incoming call' ? 'Decline' : 'End Call'}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 p-4 md:grid-cols-2">
+                    <video ref={localVideoRef} autoPlay muted playsInline className="w-full rounded-2xl bg-black/80 aspect-video object-cover" />
+                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full rounded-2xl bg-black/80 aspect-video object-cover" />
+                  </div>
+                  <div className="px-4 pb-4 text-xs text-sun-text-muted">
+                    The backend is relaying call signaling; the browser handles the actual media session.
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+                </>
           ) : (
             <div className="text-center p-8 xs:p-12 max-w-sm mx-auto">
               <motion.div 
@@ -434,4 +998,3 @@ export const MessagesView = () => {
     </div>
   );
 };
-

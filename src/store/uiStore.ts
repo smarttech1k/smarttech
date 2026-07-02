@@ -1,9 +1,14 @@
 import { create } from 'zustand';
+import { clearStoredAuth, getStoredAuth, setStoredAuth, type AuthUser } from '../lib/api';
 
 interface UIState {
   // Auth
   isAuthenticated: boolean;
   setAuthenticated: (value: boolean) => void;
+  authToken: string | null;
+  currentUser: AuthUser | null;
+  setAuthSession: (token: string, user: AuthUser) => void;
+  clearAuthSession: () => void;
   
   // Theme
   isDarkMode: boolean;
@@ -34,9 +39,25 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
+  ...(() => {
+    const stored = getStoredAuth();
+    return {
+      isAuthenticated: Boolean(stored.token),
+      authToken: stored.token,
+      currentUser: stored.user,
+    };
+  })(),
+
   // Auth - Default to false as requested for "Auth state (isLoggedIn true/false)"
-  isAuthenticated: false,
   setAuthenticated: (value) => set({ isAuthenticated: value }),
+  setAuthSession: (token, user) => {
+    setStoredAuth(token, user);
+    set({ isAuthenticated: true, authToken: token, currentUser: user });
+  },
+  clearAuthSession: () => {
+    clearStoredAuth();
+    set({ isAuthenticated: false, authToken: null, currentUser: null });
+  },
   
   // Theme - Default to light
   isDarkMode: false,

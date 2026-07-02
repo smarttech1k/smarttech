@@ -36,10 +36,15 @@ import { AnalyticsView } from './components/features/analytics/Analytics';
 
 export default function App() {
   const { 
-    isAuthenticated, setAuthenticated,
+    isAuthenticated,
+    authToken,
+    currentUser,
+    clearAuthSession,
     isDarkMode, toggleTheme,
     showAuthModal, setShowAuthModal 
   } = useUIStore();
+
+  const isFullyAuthenticated = Boolean(isAuthenticated && authToken && currentUser);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,14 +58,23 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      clearAuthSession();
+      navigate('/login', { replace: true });
+    };
+
+    window.addEventListener('korusa:unauthorized', handleUnauthorized as EventListener);
+    return () => window.removeEventListener('korusa:unauthorized', handleUnauthorized as EventListener);
+  }, [clearAuthSession, navigate]);
+
   const onAuthSuccess = () => {
-    setAuthenticated(true);
     setShowAuthModal(false);
     navigate('/home');
   };
 
   const onSignOut = () => {
-    setAuthenticated(false);
+    clearAuthSession();
     navigate('/');
   };
 
@@ -69,22 +83,22 @@ export default function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={
-          <PublicRoute isAuthenticated={isAuthenticated}>
+          <PublicRoute isAuthenticated={isFullyAuthenticated}>
             <LandingView />
           </PublicRoute>
         } />
         <Route path="/login" element={
-          <PublicRoute isAuthenticated={isAuthenticated}>
+          <PublicRoute isAuthenticated={isFullyAuthenticated}>
             <LandingView />
           </PublicRoute>
         } />
         <Route path="/signup" element={
-          <PublicRoute isAuthenticated={isAuthenticated}>
+          <PublicRoute isAuthenticated={isFullyAuthenticated}>
             <LandingView />
           </PublicRoute>
         } />
         <Route path="/forgot-password" element={
-          <PublicRoute isAuthenticated={isAuthenticated}>
+          <PublicRoute isAuthenticated={isFullyAuthenticated}>
             <PlaceholderView title="Reset Key" />
           </PublicRoute>
         } />
@@ -124,5 +138,3 @@ export default function App() {
     </div>
   );
 }
-
-

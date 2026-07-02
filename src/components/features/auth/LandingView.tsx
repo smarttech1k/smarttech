@@ -4,10 +4,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Chrome, Apple, Sun } from 'lucide-react';
 import { useUIStore } from '../../../store/uiStore';
 import { KorusaLogo, KorusaIcon } from '../../shared/Logo';
+import { apiRequest, type AuthTokens } from '../../../lib/api';
+import { loadContentBlock } from '../../../lib/content';
+import { PasswordInput } from '../../ui/PasswordInput';
 
 // --- Reusable Components ---
 
-const InputField = ({ label, type = "text", placeholder, icon: Icon }: { label: string; type?: string; placeholder: string; icon?: any }) => (
+const InputField = ({ label, type = "text", placeholder, icon: Icon, value, onChange }: { label: string; type?: string; placeholder: string; icon?: any; value?: string; onChange?: React.ChangeEventHandler<HTMLInputElement> }) => (
   <div className="w-full mb-5 space-y-2">
     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-sun-text-muted px-1 block">
       {label}
@@ -16,6 +19,8 @@ const InputField = ({ label, type = "text", placeholder, icon: Icon }: { label: 
       <input 
         type={type}
         placeholder={placeholder}
+        value={value}
+        onChange={onChange}
         className="w-full bg-sun-surface-light border-2 border-sun-border text-sun-text-main rounded-2xl py-4 px-6 focus:outline-none focus:ring-4 focus:ring-sun-primary/10 focus:border-sun-primary transition-all duration-300 placeholder:text-sun-text-muted/40 font-medium tracking-tight"
       />
     </div>
@@ -37,10 +42,21 @@ const Button = ({ children, variant = 'primary', className = '', onClick, type =
   );
 };
 
-const AuthCard = ({ onLogin }: { onLogin: () => void }) => {
+const AuthCard = ({
+  onLogin,
+  onSignup,
+  busy,
+}: {
+  onLogin: (email: string, password: string) => Promise<void> | void;
+  onSignup: (fullName: string, email: string, password: string) => Promise<void> | void;
+  busy: boolean;
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLogin, setIsLogin] = useState(location.pathname === '/login');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     setIsLogin(location.pathname === '/login');
@@ -64,15 +80,27 @@ const AuthCard = ({ onLogin }: { onLogin: () => void }) => {
           </p>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); onLogin(); }} className="space-y-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (isLogin) {
+              onLogin(email, password);
+            } else {
+              onSignup(fullName, email, password);
+            }
+          }}
+          className="space-y-2"
+        >
           {!isLogin && (
-            <InputField label="Full Name" placeholder="John Doe" />
+            <InputField label="Full Name" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
           )}
-          <InputField label="Email or Phone" placeholder="user@example.com" />
-          <InputField label="Password" type="password" placeholder="••••••••••••" />
+          <InputField label="Email or Phone" placeholder="user@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <PasswordInput label="Password" placeholder="••••••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
           
           <div className="pt-4">
-            <Button type="submit" variant="primary">{isLogin ? 'Log In' : 'Sign Up'}</Button>
+            <Button type="submit" variant="primary" disabled={busy}>
+              {busy ? 'Working...' : (isLogin ? 'Log In' : 'Sign Up')}
+            </Button>
           </div>
           
           {isLogin && (
@@ -93,10 +121,10 @@ const AuthCard = ({ onLogin }: { onLogin: () => void }) => {
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" className="py-3">
+            <Button type="button" variant="outline" className="py-3">
               <Chrome size={16} /> Google
             </Button>
-            <Button variant="outline" className="py-3">
+            <Button type="button" variant="outline" className="py-3">
               <Apple size={16} /> Apple
             </Button>
           </div>
@@ -106,6 +134,7 @@ const AuthCard = ({ onLogin }: { onLogin: () => void }) => {
               {isLogin ? "Don't have an account?" : "Already have an account?"}
             </p>
             <Button 
+              type="button"
               variant="secondary" 
               onClick={() => navigate(isLogin ? '/signup' : '/login')}
             >
@@ -137,14 +166,88 @@ const Footer = () => (
 export const LandingView = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setAuthenticated, isDarkMode, toggleTheme } = useUIStore();
+  const { setAuthSession, isDarkMode, toggleTheme } = useUIStore();
+  const [authError, setAuthError] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [footerText, setFooterText] = useState('© 2026 Korusa • All Rights Reserved');
 
-  const handleLogin = () => {
-    setAuthenticated(true);
-    // Redirect to the page they were trying to visit, or home
-    const state = location.state as { from?: { pathname: string } } | null;
-    const from = state?.from?.pathname || '/home';
-    navigate(from, { replace: true });
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const content = await loadContentBlock<any>('landing', 'footer', null);
+        if (mounted && content?.copy) setFooterText(content.copy);
+      } catch {
+        // Keep default footer text.
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleLogin = async (email: string, password: string) => {
+    setAuthError('');
+    setAuthBusy(true);
+    try {
+      const result = await apiRequest<AuthTokens>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!result.access_token || !result.user?.id) {
+        throw new Error('Authentication response was incomplete');
+      }
+
+      setAuthSession(result.access_token, result.user);
+
+      const state = location.state as { from?: { pathname: string } } | null;
+      const from = state?.from?.pathname || '/home';
+      navigate(from, { replace: true });
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Unable to sign in');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleSignup = async (fullName: string, email: string, password: string) => {
+    setAuthError('');
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      setAuthError('Password must be at least 8 characters and include letters and numbers');
+      return;
+    }
+    if (!email.trim()) {
+      setAuthError('Email is required');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      const safeUsername = email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase() || `user_${Date.now()}`;
+      const safeFullName = fullName.trim() || safeUsername.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const result = await apiRequest<AuthTokens>('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          username: safeUsername,
+          full_name: safeFullName,
+          password,
+        }),
+      });
+
+      if (!result.access_token || !result.user?.id) {
+        throw new Error('Authentication response was incomplete');
+      }
+
+      setAuthSession(result.access_token, result.user);
+
+      const state = location.state as { from?: { pathname: string } } | null;
+      const from = state?.from?.pathname || '/home';
+      navigate(from, { replace: true });
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Unable to create account');
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   return (
@@ -205,12 +308,28 @@ export const LandingView = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <AuthCard onLogin={handleLogin} />
+            <AuthCard onLogin={handleLogin} onSignup={handleSignup} busy={authBusy} />
           </motion.div>
         </section>
       </main>
 
-      <Footer />
+      {authError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600 shadow-xl">
+          {authError}
+        </div>
+      )}
+
+      <footer className="w-full bg-sun-bg border-t border-sun-border/30 py-12 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-sun-text-muted">
+            <a href="#" className="hover:text-sun-primary transition-colors">About</a>
+            <a href="#" className="hover:text-sun-primary transition-colors">Privacy</a>
+            <a href="#" className="hover:text-sun-primary transition-colors">Community</a>
+            <a href="#" className="hover:text-sun-primary transition-colors">Support</a>
+          </div>
+          <p className="text-sun-text-muted/50 text-[10px] font-black uppercase tracking-[0.1em]">{footerText}</p>
+        </div>
+      </footer>
       
       {/* Background Ambience */}
       <div className="fixed inset-0 z-0 pointer-events-none">

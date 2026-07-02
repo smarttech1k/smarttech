@@ -33,7 +33,8 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { ANALYTICS_MOCK_DATA } from './mockData';
+import { apiRequest } from '../../../lib/api';
+import { useUIStore } from '../../../store/uiStore';
 
 // Korusa Purple Official Color Palette
 const COLORS = ['#6D28D9', '#8B5CF6', '#A78BFA', '#4C1D95', '#DDD6FE'];
@@ -101,11 +102,56 @@ const ChartSkeleton = () => (
 export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [summary, setSummary] = useState<any[]>([]);
+  const [growth, setGrowth] = useState<any[]>([]);
+  const [topContent, setTopContent] = useState<any[]>([]);
+  const [audience, setAudience] = useState<{ countries: any[]; gender: any[] }>({ countries: [], gender: [] });
 
   useEffect(() => {
     setIsMounted(true);
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    let mounted = true;
+    const load = async () => {
+      const token = useUIStore.getState().authToken;
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const [dash, content, aud] = await Promise.all([
+          apiRequest<any>('/analytics/dashboard?days=7', {}, token),
+          apiRequest<any>('/analytics/content?days=30&limit=5', {}, token),
+          apiRequest<any>('/analytics/audience', {}, token),
+        ]);
+        if (!mounted) return;
+        setSummary([
+          { id: 'followers', title: 'Total Followers', value: String(dash.summary.followers_count), change: 'Live', isPositive: true, icon: 'Users' },
+          { id: 'reach', title: 'Total Views', value: String(dash.summary.total_views), change: 'Live', isPositive: true, icon: 'Globe' },
+          { id: 'engagement', title: 'Engagement Rate', value: `${dash.summary.engagement_rate}%`, change: 'Live', isPositive: true, icon: 'Zap' },
+          { id: 'learning', title: 'Posts', value: String(dash.summary.total_posts), change: 'Live', isPositive: true, icon: 'BookOpen' },
+          { id: 'participation', title: 'Comments', value: String(dash.summary.total_comments), change: 'Live', isPositive: true, icon: 'MessageSquare' },
+        ]);
+        setGrowth(dash.daily_growth || []);
+        setTopContent((content.top_content || []).map((item: any) => ({ ...item, thumbnail: item.thumbnail || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=300&h=300&fit=crop' })));
+        setAudience({
+          countries: [
+            { name: 'Current Audience', percentage: 100 },
+          ],
+          gender: [
+            { name: 'All Users', value: 100 },
+          ],
+        });
+      } catch {
+        if (mounted) {
+          setSummary([]);
+          setGrowth([]);
+          setTopContent([]);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
   }, []);
 
   if (!isMounted) {
@@ -164,7 +210,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                 className={idx === 4 ? "sm:col-span-2 md:col-span-2 xl:col-span-1" : ""}
               />
             ))
-          : ANALYTICS_MOCK_DATA.summary.map((item, idx) => (
+          : summary.map((item, idx) => (
               <MetricCard 
                 key={item.id} 
                 item={item} 
@@ -194,7 +240,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
             
             <div className="h-[240px] sm:h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <AreaChart data={ANALYTICS_MOCK_DATA.growth}>
+                <AreaChart data={growth}>
                   <defs>
                     <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#6D28D9" stopOpacity={0.3}/>
@@ -256,7 +302,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
 
             <div className="h-[240px] sm:h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <BarChart data={ANALYTICS_MOCK_DATA.growth}>
+                <BarChart data={growth}>
                   <defs>
                     <linearGradient id="colorLearning" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#8B5CF6" stopOpacity={1}/>
@@ -332,7 +378,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                     <td className="py-4 hidden sm:table-cell"><div className="w-10 h-4 bg-slate-100 dark:bg-slate-800 rounded mx-auto" /></td>
                     <td className="py-4 hidden md:table-cell"><div className="w-24 h-3 bg-slate-100 dark:bg-slate-800 rounded ml-auto" /></td>
                   </tr>
-                )) : ANALYTICS_MOCK_DATA.topContent.map((post) => (
+                )) : topContent.map((post) => (
                   <tr key={post.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors">
                     <td className="py-4 pr-2">
                       <div className="flex items-center gap-3 sm:gap-4">
@@ -399,7 +445,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                   <div className="w-16 h-3 bg-slate-100 dark:bg-slate-800 rounded" />
                   <div className="w-full h-1 bg-slate-100 dark:bg-slate-800 rounded" />
                 </div>
-              )) : ANALYTICS_MOCK_DATA.audience.countries.map((c) => (
+              )) : audience.countries.map((c) => (
                 <div key={c.name} className="space-y-1.5 group">
                   <div className="flex justify-between text-xs font-semibold text-sun-text-main">
                     <span>{c.name}</span>
@@ -438,7 +484,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
-                    data={ANALYTICS_MOCK_DATA.audience.gender}
+                    data={audience.gender}
                     cx="50%"
                     cy="50%"
                     innerRadius={45}
@@ -447,7 +493,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                     dataKey="value"
                     stroke="none"
                   >
-                     {ANALYTICS_MOCK_DATA.audience.gender.map((entry, index) => (
+                     {audience.gender.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={COLORS[index % COLORS.length]} 
@@ -473,7 +519,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
             </div>
 
             <div className="grid grid-cols-3 gap-2 mt-2">
-              {ANALYTICS_MOCK_DATA.audience.gender.map((gender, idx) => (
+              {audience.gender.map((gender, idx) => (
                 <div key={gender.name} className="flex flex-col items-center p-2 sm:p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-gray-100 dark:border-sun-border/30 rounded-lg text-center">
                   <div className="w-2 h-2 rounded-full mb-1" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
                   <span className="text-[9px] font-bold text-sun-text-muted uppercase leading-tight truncate w-full">{gender.name}</span>

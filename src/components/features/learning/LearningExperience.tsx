@@ -21,6 +21,7 @@ import {
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { BackButton } from '../../ui/BackButton';
+import { useUIStore } from '../../../store/uiStore';
 
 interface Lesson {
   id: string;
@@ -58,6 +59,7 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
   const [activeTab, setActiveTab] = useState<'lessons' | 'notes' | 'discussion'>('lessons');
   const [currentLessonId, setCurrentLessonId] = useState('3');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const { currentUser } = useUIStore();
 
   return (
     <div className="fixed inset-0 z-[200] bg-sun-bg flex flex-col font-sans">
@@ -84,7 +86,7 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
           </div>
           <Button variant="outline" size="sm" className="!rounded-xl px-4 hidden sm:flex" title="Share Course">Share</Button>
           <div title="Your Profile">
-            <Avatar size="sm" src="https://i.pravatar.cc/150?u=me" />
+            <Avatar size="sm" src={currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'student'}`} />
           </div>
         </div>
       </header>
@@ -186,7 +188,7 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
                   {activeTab === 'discussion' && (
                     <div className="space-y-6 animate-in fade-in duration-500">
                       <div className="flex gap-4">
-                        <Avatar size="sm" src="https://i.pravatar.cc/150?u=me" />
+                        <Avatar size="sm" src={currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'student'}`} />
                         <div className="flex-1 space-y-4">
                           <textarea 
                             placeholder="Add a question or reflection..."

@@ -226,7 +226,7 @@ export const PostCard = ({ author, content, image, likes, time, shares = "12", c
         </div>
 
         <div className="mt-8 pt-6 border-t border-sun-border/50 flex items-center gap-4">
-          <Avatar size="sm" src="https://i.pravatar.cc/150?u=me" />
+          <Avatar size="sm" src={author.avatar || `https://i.pravatar.cc/150?u=${author.handle || author.name || 'author'}`} />
           <div className="flex-1 relative flex items-center">
             <input 
               type="text" 

@@ -18,6 +18,7 @@ export const Button = ({
   children, 
   icon, 
   className = '', 
+  type = 'button',
   ...props 
 }: ButtonProps) => {
   const baseStyles = 'inline-flex items-center justify-center font-bold tracking-wide transition-all focus:outline-none focus:ring-2 focus:ring-sun-primary active:scale-95 disabled:opacity-50 disabled:pointer-events-none rounded-xl';
@@ -44,6 +45,7 @@ export const Button = ({
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", stiffness: 400, damping: 12 }}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      type={type}
       {...(props as any)}
     >
       {icon && <span className="mr-2">{icon}</span>}

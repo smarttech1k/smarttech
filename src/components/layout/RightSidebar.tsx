@@ -1,8 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
+import { loadContentBlock } from '../../lib/content';
+import { useUIStore } from '../../store/uiStore';
 
 export const RightSidebar = () => {
+  const [mentorItems, setMentorItems] = useState<{ name: string; role: string; src: string; live: boolean }[]>([]);
+  const [trendingTags, setTrendingTags] = useState<string[]>(['Web3', 'Motion UI', 'Python', 'Brand Strategy', 'NoCode', 'Figma Pro']);
+  const [fundTitle, setFundTitle] = useState('Creator Fund');
+  const [fundDescription, setFundDescription] = useState('Start earning by sharing your expertise through short videos.');
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const content = await loadContentBlock<any>('shell', 'right_sidebar', useUIStore.getState().authToken);
+        if (!mounted) return;
+        setMentorItems(content.mentors || mentorItems);
+        setTrendingTags(content.trending_tags || trendingTags);
+        setFundTitle(content.fund_title || fundTitle);
+        setFundDescription(content.fund_description || fundDescription);
+      } catch {
+        // keep defaults
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <aside className="fixed right-0 top-16 bottom-0 z-40 hidden xl:flex flex-col w-14 hover:w-80 bg-sun-bg border-l border-sun-border transition-all duration-300 ease-in-out group/right-sidebar overflow-y-auto scrollbar-hide shadow-[-20px_0_40px_rgba(0,0,0,0.1)]">
       {/* Expansion Trigger / Collapsed View */}
@@ -30,11 +55,11 @@ export const RightSidebar = () => {
             <button className="text-[10px] font-bold text-sun-primary uppercase tracking-widest hover:underline">View All</button>
           </div>
           <div className="space-y-5">
-            {[
+            {(mentorItems.length > 0 ? mentorItems : [
               { name: 'Alex Rivera', role: 'UI/UX Lead', src: 'https://i.pravatar.cc/150?u=12', live: true },
               { name: 'Sarah Chen', role: 'Fullstack Dev', src: 'https://i.pravatar.cc/150?u=15', live: false },
               { name: 'Marcus T.', role: 'AI Specialist', src: 'https://i.pravatar.cc/150?u=18', live: false },
-            ].map((mentor) => (
+            ]).map((mentor) => (
               <div key={mentor.name} className="flex items-center gap-4 group cursor-pointer">
                 <Avatar size="md" src={mentor.src} isLive={mentor.live} />
                 <div className="flex-1">
@@ -55,7 +80,7 @@ export const RightSidebar = () => {
             <TrendingUp size={18} className="text-sun-primary" />
           </div>
           <div className="flex flex-wrap gap-2">
-            {['Web3', 'Motion UI', 'Python', 'Brand Strategy', 'NoCode', 'Figma Pro'].map(tag => (
+            {trendingTags.map(tag => (
               <button key={tag} className="px-3 py-2 bg-sun-surface border border-sun-border rounded-xl text-[10px] font-bold text-sun-text-main hover:border-sun-primary/50 transition-colors">
                 #{tag}
               </button>
@@ -65,8 +90,8 @@ export const RightSidebar = () => {
 
         <section className="mt-12">
           <div className="glass-card p-6 rounded-[2rem] border border-sun-primary/20 bg-sun-primary/5">
-            <p className="text-sm font-bold mb-2 italic text-sun-text-main">Creator Fund</p>
-            <p className="text-xs text-sun-text-muted leading-relaxed mb-4">Start earning by sharing your expertise through short videos.</p>
+            <p className="text-sm font-bold mb-2 italic text-sun-text-main">{fundTitle}</p>
+            <p className="text-xs text-sun-text-muted leading-relaxed mb-4">{fundDescription}</p>
             <button className="w-full py-3 bg-sun-primary text-black text-[10px] font-black rounded-2xl uppercase tracking-tighter hover:scale-[1.02] transition-transform">Apply Now</button>
           </div>
         </section>

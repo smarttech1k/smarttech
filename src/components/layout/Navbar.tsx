@@ -1,17 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Bell, Sun, Moon, Sparkles, MessageSquare, Menu } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Avatar } from '../ui/Avatar';
 import { useUIStore } from '../../store/uiStore';
 import { KorusaLogo } from '../shared/Logo';
+import { loadContentBlock } from '../../lib/content';
 
 export const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDarkMode, toggleTheme, toggleSidebar } = useUIStore();
+  const { isDarkMode, toggleTheme, toggleSidebar, currentUser } = useUIStore();
+  const [searchPlaceholder, setSearchPlaceholder] = useState('Search experts, lessons, courses...');
+  const [profileTitle, setProfileTitle] = useState('');
+  const [profileRole, setProfileRole] = useState('');
   
   const isHome = (location.pathname.split('/')[1] || 'home') === 'home';
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const content = await loadContentBlock<any>('shell', 'navbar', useUIStore.getState().authToken);
+        if (!mounted) return;
+        if (content.search_placeholder) setSearchPlaceholder(content.search_placeholder);
+        if (content.profile_title) setProfileTitle(content.profile_title);
+        if (content.profile_role) setProfileRole(content.profile_role);
+      } catch {
+        // keep defaults
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  const displayName = profileTitle || currentUser?.full_name || currentUser?.username || 'Your profile';
+  const displayRole = profileRole || currentUser?.bio || 'Open your profile';
 
   return (
     <nav className={`nav-blur h-16 flex items-center justify-between px-4 sm:px-6 lg:px-12 lg:pl-28 ${isHome ? 'xl:pr-20' : ''} backdrop-blur-xl shrink-0 border-b border-sun-border/30 transition-all duration-300`}>
@@ -35,7 +59,7 @@ export const Navbar = () => {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-sun-text-muted group-focus-within:text-sun-primary transition-colors" size={18} />
         <input 
           type="text" 
-          placeholder="Search experts, lessons, courses..." 
+          placeholder={searchPlaceholder} 
           className="w-full bg-sun-surface-light border border-sun-border rounded-2xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-sun-primary/10 focus:border-sun-primary transition-all font-medium placeholder:text-sun-text-muted/50"
         />
       </div>
@@ -87,10 +111,14 @@ export const Navbar = () => {
           className="flex items-center gap-3 pr-2 transition-all group"
           title="Profile"
         >
-          <Avatar size="md" src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop" />
+          <Avatar
+            size="md"
+            src={currentUser?.avatar_url || undefined}
+            name={displayName}
+          />
           <div className="hidden xl:block text-left">
-            <p className="text-xs font-bold leading-none group-hover:text-sun-primary transition-colors">James Wilson</p>
-            <p className="text-[10px] text-sun-text-muted mt-1 font-medium">Expert Creator</p>
+            <p className="text-xs font-bold leading-none group-hover:text-sun-primary transition-colors">{displayName}</p>
+            <p className="text-[10px] text-sun-text-muted mt-1 font-medium">{displayRole}</p>
           </div>
         </motion.button>
       </div>

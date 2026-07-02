@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Play, TrendingUp, Sparkles, Code, Brain, Target, Briefcase } from 'lucide-react';
+import { Play, TrendingUp, Sparkles, FileText } from 'lucide-react';
 import { Badge } from '../../ui/Input';
 import { BackButton } from '../../ui/BackButton';
+import { apiRequest } from '../../../lib/api';
+import { useUIStore } from '../../../store/uiStore';
 
 const categories = [
   { id: 'all', label: 'All Sparks', icon: Sparkles },
@@ -12,46 +14,68 @@ const categories = [
   { id: 'design', label: 'Design & UX', icon: Sparkles },
 ];
 
-const mockItems = [
-  { id: 1, type: 'video', size: 'large', image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80', views: '124k', likes: '12k', category: 'dev' },
-  { id: 2, type: 'post', size: 'regular', image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80', likes: '850', category: 'ai' },
-  { id: 3, type: 'post', size: 'regular', image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&q=80', likes: '2.4k', category: 'dev' },
-  { id: 4, type: 'video', size: 'tall', image: 'https://images.unsplash.com/photo-1586717791821-3f44a563dc4c?w=800&q=80', views: '82k', likes: '5.2k', category: 'design' },
-  { id: 5, type: 'post', size: 'regular', image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80', likes: '3.1k', category: 'business' },
-  { id: 6, type: 'video', size: 'regular', image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80', views: '45k', likes: '1.2k', category: 'ai' },
-  { id: 7, type: 'post', size: 'tall', image: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80', likes: '942', category: 'design' },
-  { id: 8, type: 'video', size: 'large', image: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=1200&q=80', views: '210k', likes: '18k', category: 'business' },
-  { id: 9, type: 'post', size: 'regular', image: 'https://images.unsplash.com/photo-1551434678-e076c223a692?w=800&q=80', likes: '5k', category: 'dev' },
-];
+type ExploreItem = {
+  id: string;
+  type: 'video' | 'post';
+  size: 'large' | 'regular' | 'tall';
+  image?: string;
+  content: string;
+  views?: string;
+  likes?: string;
+  category: string;
+};
 
 export const ExploreView = ({ onBack }: { onBack?: () => void }) => {
-  const [items, setItems] = useState(mockItems);
+  const { authToken } = useUIStore();
+  const [items, setItems] = useState<ExploreItem[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const loaderRef = useRef<HTMLDivElement>(null);
 
-  const loadMore = useCallback(() => {
-    if (isLoading || !hasMore) return;
-    
-    setIsLoading(true);
-    
-    // Simulate API fetch delay
-    setTimeout(() => {
-      const newItems = mockItems.map(item => ({
-        ...item,
-        id: item.id + items.length // Generate new IDs for the infinite effect
-      }));
-      
-      setItems(prev => [...prev, ...newItems]);
-      setIsLoading(false);
-      
-      // Stop after 5 loads for this demo
-      if (items.length > 50) {
-        setHasMore(false);
+  const mapPost = (post: any, index: number): ExploreItem => ({
+    id: post.id,
+    type: post.video_url ? 'video' : 'post',
+    size: index % 5 === 0 ? 'large' : index % 3 === 0 ? 'tall' : 'regular',
+    image: post.images?.[0] || post.thumbnail || undefined,
+    content: post.caption || post.body || post.description || 'Text-only post',
+    views: post.views_count ? `${Math.round(post.views_count / 1000)}k` : undefined,
+    likes: post.likes_count ? `${Math.round(post.likes_count / 1000)}k` : '0',
+    category: (post.tags?.[0] || post.audience || 'all').toLowerCase(),
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      if (!authToken) return;
+      try {
+        const response = await apiRequest<{ posts: any[] }>('/posts/explore?limit=20&page=1', {}, authToken);
+        if (!mounted) return;
+        setItems(response.posts.map(mapPost));
+        setHasMore(response.posts.length > 0);
+      } catch {
+        if (mounted) setItems([]);
       }
-    }, 1500);
-  }, [items.length, isLoading, hasMore]);
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken]);
+
+  const loadMore = useCallback(() => {
+    if (isLoading || !hasMore || !authToken) return;
+    setIsLoading(true);
+    apiRequest<{ posts: any[] }>(`/posts/explore?limit=20&page=${page + 1}`, {}, authToken)
+      .then((response) => {
+        const newItems = response.posts.map((post, index) => mapPost(post, index + items.length));
+        setItems((prev) => [...prev, ...newItems]);
+        setPage((prev) => prev + 1);
+        setHasMore(newItems.length > 0);
+      })
+      .finally(() => setIsLoading(false));
+  }, [authToken, hasMore, isLoading, items.length, page]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -122,11 +146,28 @@ export const ExploreView = ({ onBack }: { onBack?: () => void }) => {
               'row-span-2'
             }`}
           >
-            <img 
-              src={item.image} 
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-              alt="Explore content" 
-            />
+            {item.image ? (
+              <img 
+                src={item.image} 
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                alt="Explore content" 
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-sun-surface via-sun-surface-light to-sun-primary/10 flex flex-col justify-between p-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-2xl bg-sun-primary/15 border border-sun-primary/20 flex items-center justify-center text-sun-primary">
+                    <FileText size={18} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sun-text-muted">Text post</span>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-bold leading-snug text-sun-text-main line-clamp-4">
+                    {item.content}
+                  </p>
+                  <p className="text-[10px] font-medium text-sun-text-muted">No image attached</p>
+                </div>
+              </div>
+            )}
             
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between">

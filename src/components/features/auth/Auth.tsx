@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, Mail, Lock, Phone, ArrowRight, Github, Chrome, Apple, ShieldAlert, X, Globe, CheckCircle2, Zap, Users, BookOpen, Award, TrendingUp, Star } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Input, Badge } from '../../ui/Input';
+import { PasswordInput } from '../../ui/PasswordInput';
 import { BackButton } from '../../ui/BackButton';
 import { useUIStore } from '../../../store/uiStore';
 import { KorusaIcon } from '../../shared/Logo';
+import { apiRequest, type AuthTokens } from '../../../lib/api';
 
 type AuthView = 'welcome' | 'login' | 'signup' | 'forgot-password' | 'otp' | 'recovery';
 
@@ -24,9 +26,16 @@ export const AuthUI = ({
   defaultView
 }: AuthUIProps) => {
   const [view, setView] = useState<AuthView>(defaultView || (isModal ? 'login' : 'welcome'));
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { isDarkMode, toggleTheme, setAuthenticated, setShowAuthModal } = useUIStore();
+  const { isDarkMode, toggleTheme, setAuthSession, setShowAuthModal } = useUIStore();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -54,10 +63,100 @@ export const AuthUI = ({
   };
 
   const handleSuccess = () => {
-    setAuthenticated(true);
     setShowAuthModal(false);
     if (onSuccess) onSuccess();
     if (onClose) onClose();
+  };
+
+  const handleLogin = async () => {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const result = await apiRequest<AuthTokens>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      if (!result.access_token || !result.user?.id) {
+        throw new Error('Authentication response was incomplete');
+      }
+      setAuthSession(result.access_token, result.user);
+      handleSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    setError('');
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      setError('Password must be at least 8 characters and include letters and numbers');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const safeUsername = email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase() || `user_${Date.now()}`;
+      const safeFullName = fullName.trim() || safeUsername.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const result = await apiRequest<AuthTokens>('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          username: safeUsername,
+          full_name: safeFullName,
+          password,
+        }),
+      });
+      if (!result.access_token || !result.user?.id) {
+        throw new Error('Authentication response was incomplete');
+      }
+      setAuthSession(result.access_token, result.user);
+      handleSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create account');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await apiRequest('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: resetEmail }),
+      });
+      setView('otp');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to send reset code');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await apiRequest('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email: resetEmail, otp }),
+      });
+      setView('recovery');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to verify code');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const containerClasses = isModal 
@@ -399,13 +498,16 @@ export const AuthUI = ({
                   label="Email or Phone" 
                   placeholder="name@example.com" 
                   icon={<Mail size={18} />}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
                 <div className="space-y-1">
-                  <Input 
-                    label="Password" 
-                    type="password" 
-                    placeholder="••••••••" 
+                  <PasswordInput
+                    label="Password"
+                    placeholder="••••••••"
                     icon={<Lock size={18} />}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                   <button 
                     onClick={() => handleSetView('forgot-password')}
@@ -416,8 +518,9 @@ export const AuthUI = ({
                 </div>
               </div>
 
-              <Button className="w-full" size="lg" icon={<ArrowRight size={20} />} onClick={handleSuccess}>
-                Sign In
+              {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+              <Button className="w-full" size="lg" icon={<ArrowRight size={20} />} onClick={handleLogin} disabled={isSubmitting}>
+                {isSubmitting ? 'Signing In...' : 'Sign In'}
               </Button>
 
               <div className="relative">
@@ -473,9 +576,10 @@ export const AuthUI = ({
               </div>
 
               <div className="space-y-4">
-                <Input label="Full Name" placeholder="John Doe" />
-                <Input label="Email Address" placeholder="name@example.com" />
-                <Input label="Password" type="password" placeholder="••••••••" />
+                <Input label="Full Name" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                <Input label="Email Address" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <PasswordInput label="Password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput label="Confirm Password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                 <div className="flex items-center gap-2 px-1">
                   <input type="checkbox" className="rounded border-sun-border bg-sun-surface text-sun-primary w-4 h-4" />
                   <p className="text-[10px] text-sun-text-muted font-medium">
@@ -484,8 +588,9 @@ export const AuthUI = ({
                 </div>
               </div>
 
-              <Button className="w-full" size="lg" onClick={handleSuccess}>
-                Get Started
+              {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+              <Button className="w-full" size="lg" onClick={handleSignup} disabled={isSubmitting}>
+                {isSubmitting ? 'Creating Account...' : 'Get Started'}
               </Button>
 
               <p className="text-center text-sm text-sun-text-muted">
@@ -521,15 +626,16 @@ export const AuthUI = ({
               </div>
 
               <div className="space-y-4">
-                <Input label="Email Address" placeholder="name@example.com" />
+                <Input label="Email Address" placeholder="name@example.com" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
               </div>
 
               <Button 
                 className="w-full" 
                 size="lg"
-                onClick={() => handleSetView('otp')}
+                onClick={handleForgotPassword}
+                disabled={isSubmitting}
               >
-                Send Reset Link
+                {isSubmitting ? 'Sending...' : 'Send Reset Link'}
               </Button>
 
               <button 
@@ -568,6 +674,12 @@ export const AuthUI = ({
                     type="text"
                     maxLength={1}
                     className="w-full aspect-square text-center text-2xl font-bold bg-sun-surface border border-sun-border rounded-2xl focus:border-sun-primary focus:ring-1 focus:ring-sun-primary outline-none transition-all"
+                    value={otp[i - 1] || ''}
+                    onChange={(e) => {
+                      const next = otp.split('');
+                      next[i - 1] = e.target.value.slice(-1);
+                      setOtp(next.join('').slice(0, 4));
+                    }}
                   />
                 ))}
               </div>
@@ -576,9 +688,10 @@ export const AuthUI = ({
                 <Button 
                   className="w-full" 
                   size="lg"
-                  onClick={() => handleSetView('recovery')}
+                  onClick={handleVerifyOtp}
+                  disabled={isSubmitting}
                 >
-                  Verify Code
+                  {isSubmitting ? 'Verifying...' : 'Verify Code'}
                 </Button>
                 <button className="w-full text-[10px] font-bold text-sun-text-muted hover:text-sun-primary transition-colors uppercase tracking-widest text-center">
                   Resend Code (45s)
@@ -605,8 +718,8 @@ export const AuthUI = ({
               </div>
 
               <div className="space-y-4">
-                <Input label="New Password" type="password" placeholder="••••••••" icon={<Lock size={18} />} />
-                <Input label="Confirm Password" type="password" placeholder="••••••••" icon={<Lock size={18} />} />
+                <PasswordInput label="New Password" placeholder="••••••••" icon={<Lock size={18} />} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput label="Confirm Password" placeholder="••••••••" icon={<Lock size={18} />} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
               </div>
 
               <Button 

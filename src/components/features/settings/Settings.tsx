@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   User, 
@@ -19,12 +19,34 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
 import { BackButton } from '../../ui/BackButton';
+import { PasswordInput } from '../../ui/PasswordInput';
+import { apiRequest } from '../../../lib/api';
+import { useUIStore } from '../../../store/uiStore';
 
 type SettingsSection = 'account' | 'privacy' | 'security' | 'notifications' | 'appearance';
 
 export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [profile, setProfile] = useState<{ full_name?: string; username?: string; email?: string; bio?: string } | null>(null);
+  const { authToken, currentUser } = useUIStore();
+
+  useEffect(() => {
+    let mounted = true;
+    const loadProfile = async () => {
+      if (!authToken) return;
+      try {
+        const data = await apiRequest<{ full_name?: string; username?: string; email?: string; bio?: string }>('/auth/me', {}, authToken);
+        if (mounted) setProfile(data);
+      } catch {
+        if (mounted) setProfile(null);
+      }
+    };
+    loadProfile();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken]);
 
   const sections = [
     { id: 'account', icon: User, label: 'Account' },
@@ -95,7 +117,7 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
               <div className="space-y-8 animate-in fade-in duration-500">
                 <div className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-white/5">
                   <div className="relative group">
-                    <Avatar size="xl" src="https://i.pravatar.cc/400?u=me" className="ring-4 ring-sun-primary/20" />
+                    <Avatar size="xl" src={profile?.avatar_url || currentUser?.avatar_url || `https://i.pravatar.cc/400?u=${profile?.username || currentUser?.username || 'user'}`} className="ring-4 ring-sun-primary/20" />
                     <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
                       <p className="text-[8px] font-black uppercase tracking-tighter text-white">Update</p>
                     </div>
@@ -109,17 +131,17 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 ml-1 mb-1">
-                      <div className="w-1 h-1 bg-sun-primary rounded-full"></div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-sun-text-muted">Legal Registry Name</label>
-                    </div>
-                    <Input placeholder="Joshua Wise" defaultValue="Joshua Wise" className="!bg-white/[0.02] border-white/10" />
+                    <div className="w-1 h-1 bg-sun-primary rounded-full"></div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-sun-text-muted">Legal Registry Name</label>
+                  </div>
+                    <Input placeholder="Full name" defaultValue={profile?.full_name || currentUser?.full_name || ''} className="!bg-white/[0.02] border-white/10" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 ml-1 mb-1">
                       <div className="w-1 h-1 bg-sun-primary rounded-full"></div>
                       <label className="text-[9px] font-black uppercase tracking-widest text-sun-text-muted">Broadcast Handle</label>
                     </div>
-                    <Input placeholder="joshua_wise" defaultValue="joshua_wise" className="!bg-white/[0.02] border-white/10" />
+                    <Input placeholder="username" defaultValue={profile?.username || currentUser?.username || ''} className="!bg-white/[0.02] border-white/10" />
                   </div>
                 </div>
 
@@ -130,7 +152,7 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                   </div>
                   <textarea 
                     className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-sun-primary/30 transition-all min-h-[120px] resize-none font-medium placeholder:text-sun-text-muted/30"
-                    defaultValue="Scaling expertise through modular content systems. Building the future of distributed learning. ☀️"
+                    defaultValue={profile?.bio || currentUser?.bio || ''}
                   />
                 </div>
 
@@ -139,7 +161,7 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8">
                     <div className="relative group">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-sun-text-muted group-focus-within:text-sun-primary transition-colors" size={16} />
-                      <Input className="pl-12 !bg-white/[0.02] border-white/10" defaultValue="joshua@wise.com" />
+                      <Input className="pl-12 !bg-white/[0.02] border-white/10" defaultValue={profile?.email || currentUser?.email || ''} />
                     </div>
                     <div className="relative group">
                       <PhoneIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-sun-text-muted group-focus-within:text-sun-primary transition-colors" size={16} />
@@ -198,11 +220,11 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest ml-1 text-sun-text-muted">Current Access Key</label>
-                        <Input type="password" placeholder="••••••••" className="!bg-white/[0.02] border-white/10" />
+                        <PasswordInput placeholder="••••••••" className="!bg-white/[0.02] border-white/10" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black uppercase tracking-widest ml-1 text-sun-text-muted">New Access Key</label>
-                        <Input type="password" placeholder="••••••••" className="!bg-white/[0.02] border-white/10" />
+                        <PasswordInput placeholder="••••••••" className="!bg-white/[0.02] border-white/10" />
                       </div>
                     </div>
                   </div>

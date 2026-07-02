@@ -7,10 +7,11 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated } = useUIStore();
+  const { isAuthenticated, authToken, currentUser } = useUIStore();
   const location = useLocation();
+  const isFullyAuthenticated = Boolean(isAuthenticated && authToken && currentUser);
 
-  if (!isAuthenticated) {
+  if (!isFullyAuthenticated) {
     // Redirect them to the /login page, but save the current location they were
     // trying to go to when they were redirected. This allows us to send them
     // along to that page after they login, which is a nicer user experience

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Plus, 
@@ -24,6 +24,8 @@ import {
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
+import { useUIStore } from '../../../store/uiStore';
+import { apiRequest } from '../../../lib/api';
 
 // 1. WELCOME SECTION (CONNECT, LEARN, BUILD)
 export const HeroSection = ({ onExplore, onLearn }: { onExplore: () => void; onLearn: () => void }) => {
@@ -79,11 +81,12 @@ export const HeroSection = ({ onExplore, onLearn }: { onExplore: () => void; onL
 
 // 2. PROMPT BAR (THE QUICK POST & IDEATION BOX)
 export const PromptBar = ({ onFocus }: { onFocus?: () => void }) => {
+  const { currentUser } = useUIStore();
   return (
     <div className="relative w-full">
       <div className="bg-sun-surface border border-sun-border p-4 sm:p-5 rounded-3xl shadow-sm hover:shadow-premium transition-all duration-300">
         <div className="flex items-center gap-4">
-          <Avatar src="https://i.pravatar.cc/150?u=me" size="sm" className="ring-2 ring-sun-primary/20" />
+          <Avatar src={currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`} size="sm" className="ring-2 ring-sun-primary/20" />
           <div 
             onClick={onFocus}
             className="flex-1 bg-sun-bg border border-sun-border/40 px-5 py-3 rounded-2xl text-sun-text-muted text-sm cursor-text hover:border-sun-accent/40 transition-colors flex items-center justify-between group"
@@ -162,30 +165,23 @@ export const QuickActionCards = ({
 
 // 4. LEARNING RECOMMENDATIONS
 export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?: string) => void }) => {
-  const courses = [
-    {
-      id: "c1",
-      category: "Photography & Video",
-      title: "Short-Form Magic: Filming & Editing Sparks That Go Viral",
-      mentor: "Sarah Chen",
-      role: "Travel Vlogger & Editor",
-      rating: "4.9",
-      students: "2.4k",
-      color: "border-sun-primary/10",
-      accent: "text-sun-primary"
-    },
-    {
-      id: "c2",
-      category: "Creative Writing",
-      title: "Storytelling 101: Captivate Your Audience In Under 60 Seconds",
-      mentor: "Leon Vance",
-      role: "Creative Director",
-      rating: "4.8",
-      students: "1.8k",
-      color: "border-emerald-500/10",
-      accent: "text-emerald-500"
-    }
-  ];
+  const { authToken } = useUIStore();
+  const [courses, setCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      if (!authToken) return;
+      try {
+        const response = await apiRequest<{ lessons: any[] }>('/lessons?featured=true&limit=4', {}, authToken);
+        if (mounted) setCourses(response.lessons || []);
+      } catch {
+        if (mounted) setCourses([]);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [authToken]);
 
   return (
     <div className="space-y-6">
@@ -208,10 +204,10 @@ export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?
           <div 
             key={course.id}
             onClick={() => onCourseClick(course.id)}
-            className={`bg-sun-surface border ${course.color} p-6 rounded-2xl hover:shadow-premium transition-all duration-300 cursor-pointer group hover:border-sun-primary/40`}
+            className="bg-sun-surface border border-sun-border/40 p-6 rounded-2xl hover:shadow-premium transition-all duration-300 cursor-pointer group hover:border-sun-primary/40"
           >
             <div className="flex justify-between items-start mb-4">
-              <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-sun-bg ${course.accent}`}>
+              <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-sun-bg text-sun-primary">
                 {course.category}
               </span>
               <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500">
@@ -225,9 +221,9 @@ export const LearningRecommendations = ({ onCourseClick }: { onCourseClick: (id?
 
             <div className="flex items-center justify-between pt-4 border-t border-sun-border/40">
               <div className="flex items-center gap-2">
-                <Avatar src={`https://i.pravatar.cc/150?u=${course.mentor}`} size="sm" />
+                <Avatar src={course.thumbnail || `https://i.pravatar.cc/150?u=${course.instructor || course.title}`} size="sm" />
                 <div>
-                   <p className="text-[11px] font-bold text-sun-text-main">{course.mentor}</p>
+                   <p className="text-[11px] font-bold text-sun-text-main">{course.instructor}</p>
                    <p className="text-[10px] text-sun-text-muted">{course.role}</p>
                 </div>
               </div>
@@ -258,6 +254,23 @@ export interface PostProps {
   likes: number;
   comments: number;
   time: string;
+}
+
+export interface DashboardFeedPost {
+  id: string;
+  author: {
+    id?: string;
+    username: string;
+    full_name?: string;
+    avatar_url?: string;
+    bio?: string;
+  };
+  caption: string;
+  likes_count: number;
+  comments_count: number;
+  shares_count: number;
+  views_count: number;
+  created_at?: string;
 }
 
 export const CommunityPost: React.FC<PostProps> = ({ id, type, author, content, image, likes, comments, time }) => {
@@ -342,28 +355,54 @@ export const CommunityPost: React.FC<PostProps> = ({ id, type, author, content, 
 
 // 6. CREATOR SPOTLIGHT
 export const CreatorSpotlight = () => {
-  const creators = [
+  const { authToken } = useUIStore();
+  const [title, setTitle] = useState('Creator Spotlight');
+  const [badge, setBadge] = useState('Top Voted');
+  const [creators, setCreators] = useState<Array<{
+    name: string;
+    role: string;
+    avatar: string;
+    rating: string;
+    skills: string[];
+  }>>([
     {
-      name: "Pranav Raj",
-      role: "Motion Designer & 3D Artist",
-      avatar: "https://i.pravatar.cc/150?u=pranav",
-      rating: "5.0",
-      skills: ["Framer Motion", "VFX", "Art"]
+      name: 'Pranav Raj',
+      role: 'Motion Designer & 3D Artist',
+      avatar: 'https://i.pravatar.cc/150?u=pranav',
+      rating: '5.0',
+      skills: ['Framer Motion', 'VFX', 'Art'],
     },
     {
-      name: "Tanya Sinclair",
-      role: "Creative Director & UX Guru",
-      avatar: "https://i.pravatar.cc/150?u=tanya",
-      rating: "4.9",
-      skills: ["Typography", "Color Theory", "Storyboarding"]
-    }
-  ];
+      name: 'Tanya Sinclair',
+      role: 'Creative Director & UX Guru',
+      avatar: 'https://i.pravatar.cc/150?u=tanya',
+      rating: '4.9',
+      skills: ['Typography', 'Color Theory', 'Storyboarding'],
+    },
+  ]);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const content = await loadContentBlock<any>('home', 'creator_spotlight', authToken);
+        if (!mounted || !content) return;
+        if (content.title) setTitle(content.title);
+        if (content.badge) setBadge(content.badge);
+        if (Array.isArray(content.creators) && content.creators.length > 0) setCreators(content.creators);
+      } catch {
+        // keep defaults
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [authToken]);
 
   return (
     <section className="bg-sun-surface border border-sun-border p-6 rounded-2xl space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">Creator Spotlight</h3>
-        <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-xs font-black uppercase tracking-widest px-2 py-0.5">Top Voted</Badge>
+        <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">{title}</h3>
+        <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-xs font-black uppercase tracking-widest px-2 py-0.5">{badge}</Badge>
       </div>
 
       <div className="space-y-4">

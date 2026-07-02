@@ -10,7 +10,7 @@ import { KorusaLogo, KorusaIcon } from '../shared/Logo';
 export const Sidebar = ({ onSignOut }: { onSignOut?: () => void }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
+  const { isSidebarOpen, toggleSidebar, setSidebarOpen, currentUser } = useUIStore();
 
   React.useEffect(() => {
     if (window.innerWidth < 768) {
@@ -120,13 +120,13 @@ export const Sidebar = ({ onSignOut }: { onSignOut?: () => void }) => {
         >
           <div className="shrink-0 ring-2 ring-transparent group-hover/profile:ring-sun-primary/30 transition-all rounded-full p-0.5">
             <Avatar 
-              src="https://i.pravatar.cc/150?u=me" 
+              src={currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`} 
               size="sm" 
             />
           </div>
           <div className={`flex flex-col transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
-            <span className="text-xs font-bold text-sun-text-main line-clamp-1">Alex Rivers</span>
-            <span className="text-[10px] text-sun-text-muted font-medium opacity-60">Cognitive Architect</span>
+            <span className="text-xs font-bold text-sun-text-main line-clamp-1">{currentUser?.full_name || currentUser?.username || 'Your profile'}</span>
+            <span className="text-[10px] text-sun-text-muted font-medium opacity-60">{currentUser?.bio || 'Open your profile'}</span>
           </div>
 
           {/* Tooltip for profile */}

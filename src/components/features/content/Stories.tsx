@@ -2,24 +2,16 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Avatar } from '../../ui/Avatar';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useUIStore } from '../../../store/uiStore';
 
-const mockStories = [
-  { id: 1, name: 'Your Story', isUser: true, src: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150' },
-  { id: 2, name: 'Alex Rivera', src: 'https://i.pravatar.cc/150?u=12', isLive: true },
-  { id: 3, name: 'Sarah Chen', src: 'https://i.pravatar.cc/150?u=15', hasUpdate: true },
-  { id: 4, name: 'Marcus T.', src: 'https://i.pravatar.cc/150?u=18', isLive: true },
-  { id: 5, name: 'Elena Ray', src: 'https://i.pravatar.cc/150?u=22', hasUpdate: true },
-  { id: 6, name: 'David K.', src: 'https://i.pravatar.cc/150?u=25', hasUpdate: true },
-  { id: 7, name: 'Zoe Life', src: 'https://i.pravatar.cc/150?u=28', hasUpdate: true },
-  { id: 8, name: 'Julian M.', src: 'https://i.pravatar.cc/150?u=31', hasUpdate: true },
-  { id: 9, name: 'Sophie L.', src: 'https://i.pravatar.cc/150?u=34', hasUpdate: true },
-  { id: 10, name: 'Ryan G.', src: 'https://i.pravatar.cc/150?u=37' },
-];
+type StoryItem = { id: string; name: string; isUser?: boolean; src: string; isLive?: boolean; hasUpdate?: boolean };
 
 export const StoriesBar = () => {
+  const { authToken, currentUser } = useUIStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftBtn, setShowLeftBtn] = useState(false);
   const [showRightBtn, setShowRightBtn] = useState(false);
+  const [stories, setStories] = useState<StoryItem[]>([]);
 
   const checkScroll = () => {
     if (scrollContainerRef.current) {
@@ -34,6 +26,25 @@ export const StoriesBar = () => {
     window.addEventListener('resize', checkScroll);
     return () => window.removeEventListener('resize', checkScroll);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadStories = async () => {
+      if (!authToken) return;
+      try {
+        if (!mounted) return;
+        setStories([
+          { id: 'me', name: 'Your Story', isUser: true, src: currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}` },
+        ]);
+      } catch {
+        if (mounted) setStories([{ id: 'me', name: 'Your Story', isUser: true, src: currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}` }]);
+      }
+    };
+    loadStories();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken, currentUser?.avatar_url]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -67,7 +78,7 @@ export const StoriesBar = () => {
         onScroll={checkScroll}
         className="flex gap-4 overflow-x-auto pt-[14px] pb-4 scrollbar-hide px-1 ml-0 mr-0 mt-0 mb-0 snap-x snap-mandatory cursor-grab active:cursor-grabbing"
       >
-        {mockStories.map((story) => (
+        {stories.map((story) => (
           <motion.div 
             key={story.id} 
             whileHover={{ scale: 1.02 }}

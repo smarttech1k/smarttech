@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, 
@@ -24,6 +24,7 @@ import { Badge } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
 import { BackButton } from '../../ui/BackButton';
 import { useUIStore } from '../../../store/uiStore';
+import { apiRequest } from '../../../lib/api';
 
 interface Lesson {
   title: string;
@@ -35,33 +36,6 @@ interface Section {
   title: string;
   lessons: Lesson[];
 }
-
-const mockCurriculum: Section[] = [
-  {
-    title: 'Flagship Core Fundamentals',
-    lessons: [
-      { title: 'The Premium 3-Second Hook Method', duration: '12:45', isPreview: true },
-      { title: 'Designing High-End Creator Style & Layout Flow', duration: '08:20', isPreview: true },
-      { title: 'Lighting & Gorgeous Cinematic Phone Setup', duration: '15:10' },
-    ]
-  },
-  {
-    title: 'Advanced Video Production & Pacing',
-    lessons: [
-      { title: 'Dynamic Micro-Trimming & Jump-Cuts', duration: '22:15' },
-      { title: 'Adding Premium Visual Typography Overlays', duration: '18:40' },
-      { title: 'Music Beat-matching & Ambient Layering', duration: '25:30' },
-    ]
-  },
-  {
-    title: 'Brand Growth & Collaborative Formats',
-    lessons: [
-      { title: 'Connecting Back with Follower Psychology', duration: '30:00' },
-      { title: 'Hosting High-Engagement Live Q&As', duration: '12:10' },
-      { title: 'Designing Collaborative Viral Scripts', duration: '45:00' },
-    ]
-  }
-];
 
 export const CourseDetailView = ({ 
   course, 
@@ -75,6 +49,30 @@ export const CourseDetailView = ({
   const [expandedSection, setExpandedSection] = useState<number | null>(0);
   const { cart, addToCart, enrolledCourses } = useUIStore();
   const [copied, setCopied] = useState(false);
+  const [sections, setSections] = useState<Section[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const response = await apiRequest<any>(`/courses/${course.id}`, {}, useUIStore.getState().authToken);
+        if (!mounted) return;
+        const nextSections = (response.sections || []).map((section: any) => ({
+          title: section.title,
+          lessons: (section.lesson_details || []).map((lesson: any) => ({
+            title: lesson.title,
+            duration: lesson.duration || '00:00',
+            isPreview: lesson.is_preview,
+          })),
+        }));
+        setSections(nextSections);
+      } catch {
+        if (mounted) setSections([]);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [course.id]);
 
   // Check if course is already in cart
   const isInCart = cart.some(item => item.id === course.id);
@@ -126,6 +124,31 @@ export const CourseDetailView = ({
               Transform your build ability with deep, structured modules and actual hands-on assignments. Led by premier creator experts.
             </p>
 
+            {(course.course_link || course.data_link) && (
+              <div className="flex flex-col gap-2 text-xs sm:text-sm">
+                {course.course_link && (
+                  <a
+                    href={course.course_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sun-primary font-bold break-all hover:underline"
+                  >
+                    Open course / video link
+                  </a>
+                )}
+                {course.data_link && (
+                  <a
+                    href={course.data_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sun-primary font-bold break-all hover:underline"
+                  >
+                    Open Google Drive data link
+                  </a>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-4 sm:gap-8 pt-2 sm:pt-4">
               <div className="flex items-center gap-3">
                 <Avatar size="sm" src={`https://i.pravatar.cc/150?u=${course.instructor}`} />
@@ -148,7 +171,7 @@ export const CourseDetailView = ({
           {/* Video Preview */}
           <div className="relative aspect-video rounded-[2rem] sm:rounded-[3rem] overflow-hidden bg-black border border-sun-border group shadow-2xl">
             <img 
-              src={course.thumbnail} 
+              src={course.cover_photo || course.thumbnail} 
               className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000" 
               alt="Course Cover" 
             />
@@ -200,7 +223,7 @@ export const CourseDetailView = ({
             </div>
 
             <div className="border border-sun-border rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden divide-y divide-sun-border">
-              {mockCurriculum.map((section, idx) => (
+              {(sections.length > 0 ? sections : []).map((section, idx) => (
                 <div key={idx} className="bg-sun-surface/20">
                   <button 
                     onClick={() => setExpandedSection(expandedSection === idx ? null : idx)}
@@ -326,7 +349,8 @@ export const CourseDetailView = ({
                   { icon: Clock, text: `${course.duration || '12 hours'} Premium video content` },
                   { icon: Award, text: 'Verifiable Korusa Profile Badge' },
                   { icon: Smartphone, text: 'Cross-platform interactive player' },
-                  { icon: Info, text: 'Direct Q&A thread with instructor' }
+                  { icon: Info, text: 'Direct Q&A thread with instructor' },
+                  { icon: Share2, text: course.course_link ? 'Includes course/video link' : 'Includes downloadable data link' }
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-[10px] sm:text-xs text-sun-text-muted font-medium">
                     <item.icon size={14} className="text-sun-primary" />

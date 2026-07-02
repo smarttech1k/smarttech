@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -13,58 +13,23 @@ import {
   PostProps
 } from '../features/home/HomeComponents';
 import { Badge } from '../ui/Input';
+import { apiRequest } from '../../lib/api';
+import { useUIStore } from '../../store/uiStore';
+import { loadContentBlock } from '../../lib/content';
 
 export const HomeView = () => {
   const navigate = useNavigate();
+  const { authToken, currentUser } = useUIStore();
+  const [feedPosts, setFeedPosts] = useState<PostProps[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [homeMeta, setHomeMeta] = useState<{ title?: string; subtitle?: string; empty?: string }>({});
 
-  // Premium mock community posts aligned with Korusa creative and social focus
-  const mockActivityFeed: PostProps[] = [
-    {
-      id: 'post-1',
-      type: 'Idea' as PostType,
-      author: {
-        name: 'Julian Thorne',
-        handle: 'j_thorne',
-        avatar: 'https://i.pravatar.cc/150?u=10',
-        role: 'Acoustic Musician & Singer',
-        isExpert: true
-      },
-      content: "Just posted a new 1-minute lesson on fingerpicking patterns. It's my first Spark video here! I'm looking for some friendly feedback on the pacing, or if anyone wants to team up for a duet on the next video, drop a comment! Let's create some music together.",
-      image: "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=1200&q=80",
-      likes: 128,
-      comments: 32,
-      time: '12m ago'
-    },
-    {
-      id: 'post-2',
-      type: 'Recommendation' as PostType,
-      author: {
-        name: 'Elena Vance',
-        handle: 'evance_design',
-        avatar: 'https://i.pravatar.cc/150?u=11',
-        role: 'Creative Storyteller'
-      },
-      content: "If you're trying to grow on social channels, the biggest secret is formatting the first 3 seconds as an inviting visual hook. Just finished a great micro-lesson by Sarah Chen. It totally transformed my pacing! Highly recommend checking it out in the Learn section.",
-      image: "https://images.unsplash.com/photo-1542435503-956c469947f6?w=1200&q=80",
-      likes: 94,
-      comments: 14,
-      time: '2 hours ago'
-    },
-    {
-      id: 'post-3',
-      type: 'SystemUpdate' as PostType,
-      author: {
-        name: 'Marcus Bell',
-        handle: 'mbell_social',
-        avatar: 'https://i.pravatar.cc/150?u=15',
-        role: 'Digital Art Creator'
-      },
-      content: "Who wants to do an informal art feedback cozy hour tomorrow? We'll jump on a chat, share some of our current sketch files, and share tips on color theory. Absolutely friendly vibes—let me know if you want an invite!",
-      likes: 42,
-      comments: 29,
-      time: '4 hours ago'
-    }
-  ];
+  const mapPostType = (caption: string): PostType => {
+    const text = caption.toLowerCase();
+    if (text.includes('recommend') || text.includes('learn') || text.includes('tip')) return 'Recommendation';
+    if (text.includes('update') || text.includes('announce') || text.includes('system')) return 'SystemUpdate';
+    return 'Idea';
+  };
 
   const handleSparkNavigation = () => {
     navigate('/sparks');
@@ -81,6 +46,67 @@ export const HomeView = () => {
   const handleProjectNavigation = () => {
     navigate('/explore');
   };
+
+  useEffect(() => {
+    let mounted = true;
+    const loadMeta = async () => {
+      try {
+        const content = await loadContentBlock<any>('home', 'overview', authToken);
+        if (!mounted) return;
+        setHomeMeta({
+          title: content.hero_title,
+          subtitle: content.activity_subtitle,
+          empty: content.empty_state,
+        });
+      } catch {
+        // keep defaults
+      }
+    };
+    const loadFeed = async () => {
+      if (!authToken) {
+        setFeedPosts([]);
+        setLoading(false);
+        return;
+      }
+      try {
+        const response = await apiRequest<{ feed: Array<{
+          id: string;
+          author: { username: string; full_name?: string; avatar_url?: string };
+          caption: string;
+          likes_count: number;
+          comments_count: number;
+          shares_count: number;
+          views_count: number;
+          created_at?: string;
+        }> }>('/posts/feed?limit=6&page=1', {}, authToken);
+        if (!mounted) return;
+        const nextFeed = response.feed.map((post) => ({
+          id: post.id,
+          type: mapPostType(post.caption),
+          author: {
+            name: post.author.full_name || post.author.username || 'Creator',
+            handle: post.author.username || 'creator',
+            avatar: post.author.avatar_url || `https://i.pravatar.cc/150?u=${post.author.username || post.id}`,
+            role: 'Community Creator',
+          },
+          content: post.caption || 'Shared a new idea.',
+          likes: post.likes_count,
+          comments: post.comments_count,
+          time: post.created_at ? new Date(post.created_at).toLocaleString() : 'Recently',
+        }));
+        setFeedPosts(nextFeed);
+      } catch {
+        setFeedPosts([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    loadMeta();
+    loadFeed();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pb-24 max-w-[1400px] mx-auto">
@@ -113,7 +139,7 @@ export const HomeView = () => {
           <div className="flex items-center justify-between px-1">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-sun-text-main">Community Activity</h2>
-              <p className="text-xs text-sun-text-muted mt-0.5">High engaging discussions and insights</p>
+              <p className="text-xs text-sun-text-muted mt-0.5">{homeMeta.subtitle || 'High engaging discussions and insights'}</p>
             </div>
             
             <div className="flex bg-sun-surface p-1 rounded-xl border border-sun-border">
@@ -128,7 +154,7 @@ export const HomeView = () => {
 
           {/* STREAM RENDER */}
           <div className="space-y-6">
-            {mockActivityFeed.map((post) => (
+            {(loading ? [] : feedPosts).map((post) => (
               <CommunityPost 
                 key={post.id} 
                 id={post.id}
@@ -141,6 +167,11 @@ export const HomeView = () => {
                 time={post.time}
               />
             ))}
+            {!loading && feedPosts.length === 0 && (
+              <div className="rounded-3xl border border-sun-border bg-sun-surface p-8 text-center text-sm text-sun-text-muted">
+                {homeMeta.empty || 'No live posts yet. Create the first one from the Create screen.'}
+              </div>
+            )}
           </div>
         </div>
 

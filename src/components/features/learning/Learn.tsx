@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -29,11 +29,38 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
 import { BackButton } from '../../ui/BackButton';
-import { CourseDetailView } from './CourseDetail';
+import { apiRequest } from '../../../lib/api';
 import { useUIStore } from '../../../store/uiStore';
 
 const categories = [
   'All Skills', 'Photography & Video', 'Creative Writing', 'Design & UX', 'Creative Tech'
+];
+
+const FEATURED_MENTORS = [
+  {
+    name: 'Sarah Chen',
+    role: 'Travel Vlogger & Editor',
+    avatar: 'https://i.pravatar.cc/150?u=sarah-chen',
+    students: '2.4k',
+    rating: '4.9',
+    specialty: 'Photography & Video',
+  },
+  {
+    name: 'Leon Vance',
+    role: 'Creative Director',
+    avatar: 'https://i.pravatar.cc/150?u=leon-vance',
+    students: '1.8k',
+    rating: '4.8',
+    specialty: 'Creative Writing',
+  },
+  {
+    name: 'Mina Patel',
+    role: 'Product Designer',
+    avatar: 'https://i.pravatar.cc/150?u=mina-patel',
+    students: '1.2k',
+    rating: '4.9',
+    specialty: 'Design & UX',
+  },
 ];
 
 interface Mentor {
@@ -45,89 +72,51 @@ interface Mentor {
   specialty: string;
 }
 
-const FEATURED_MENTORS: Mentor[] = [
-  {
-    name: "Sarah Chen",
-    role: "Travel Vlogger & Editor",
-    avatar: "https://i.pravatar.cc/150?u=sarah",
-    students: "8.4k",
-    rating: "4.9",
-    specialty: "Short-form Editing Flow"
-  },
-  {
-    name: "Alex Rivera",
-    role: "Creative Director & UX Guru",
-    avatar: "https://i.pravatar.cc/150?u=alex",
-    students: "12.2k",
-    rating: "4.9",
-    specialty: "Sleek Aesthetics"
-  },
-  {
-    name: "Leon Vance",
-    role: "Author & Storyteller",
-    avatar: "https://i.pravatar.cc/150?u=leon",
-    students: "4.6k",
-    rating: "5.0",
-    specialty: "High Hook Storytelling"
-  }
-];
+const MAX_COVER_WIDTH = 1400;
+const COVER_IMAGE_QUALITY = 0.78;
 
-const mockMarketplaceCourses = [
-  {
-    id: "co-1",
-    title: 'Short-Form Magic: Filming & Editing Sparks That Go Viral',
-    category: 'Photography & Video',
-    instructor: 'Sarah Chen',
-    price: 49.00,
-    rating: 4.9,
-    students: '12k',
-    duration: "14 Hours",
-    lessons: "18 lessons",
-    thumbnail: 'https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=800&q=80'
-  },
-  {
-    id: "co-2",
-    title: 'Storytelling 101: Captivate Your Audience In Under 60 Seconds',
-    category: 'Creative Writing',
-    instructor: 'Leon Vance',
-    price: 29.00,
-    rating: 4.8,
-    students: '25k',
-    duration: "9 Hours",
-    lessons: "12 lessons",
-    thumbnail: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&q=80'
-  },
-  {
-    id: "co-3",
-    title: 'Sleek Layout Design: Mastering Modern UI & Typography Pairings',
-    category: 'Design & UX',
-    instructor: 'Alex Rivera',
-    price: 39.00,
-    rating: 4.7,
-    students: '8.2k',
-    duration: "6 Hours",
-    lessons: "9 lessons",
-    thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80'
-  },
-  {
-    id: "co-4",
-    title: 'Creative Web Art: Build Interactive Playgrounds with Framer Motion',
-    category: 'Creative Tech',
-    instructor: 'Elena Ray',
-    price: 59.00,
-    rating: 4.6,
-    students: '5k',
-    duration: "11 Hours",
-    lessons: "14 lessons",
-    thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80'
+async function resizeImageToDataUrl(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Unable to load image.'));
+    img.src = objectUrl;
+  });
+
+  const scale = Math.min(1, MAX_COVER_WIDTH / image.width);
+  const width = Math.round(image.width * scale);
+  const height = Math.round(image.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    URL.revokeObjectURL(objectUrl);
+    throw new Error('Unable to process image.');
   }
-];
+
+  context.drawImage(image, 0, 0, width, height);
+  URL.revokeObjectURL(objectUrl);
+  return canvas.toDataURL('image/jpeg', COVER_IMAGE_QUALITY);
+}
 
 export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => void, onBack?: () => void }) => {
   const [activeCategory, setActiveCategory] = useState('All Skills');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [courses, setCourses] = useState<any[]>([]);
   const [viewCart, setViewCart] = useState(false);
+  const [lectureTitle, setLectureTitle] = useState('');
+  const [lectureCategory, setLectureCategory] = useState('Photography & Video');
+  const [lectureDescription, setLectureDescription] = useState('');
+  const [lectureCoverPhotoFile, setLectureCoverPhotoFile] = useState('');
+  const [lectureCoverPhotoName, setLectureCoverPhotoName] = useState('');
+  const [lectureDataLink, setLectureDataLink] = useState('');
+  const [lecturePrice, setLecturePrice] = useState('0');
+  const [lectureSubmitting, setLectureSubmitting] = useState(false);
+  const [lectureStatus, setLectureStatus] = useState('');
   const { cart, addToCart, removeFromCart, clearCart, enrolledCourses, enrollInCourses } = useUIStore();
 
   // Cart Promo Code States
@@ -139,17 +128,90 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
   const [checkoutStep, setCheckoutStep] = useState<'idle' | 'processing' | 'done'>('idle');
   const [checkoutProgressText, setCheckoutProgressText] = useState('');
 
+  useEffect(() => {
+    let mounted = true;
+    const loadCourses = async () => {
+      if (!useUIStore.getState().authToken) return;
+      try {
+        const response = await apiRequest<{ lessons: any[] }>('/lessons?limit=50', {}, useUIStore.getState().authToken);
+        if (mounted) setCourses((response.lessons || []).map((lesson: any) => ({
+          id: lesson.id,
+          category: lesson.category,
+          title: lesson.title,
+          instructor: lesson.instructor,
+          role: lesson.role,
+          rating: lesson.rating,
+          students: lesson.students,
+          price: lesson.price,
+          duration: lesson.duration,
+          lessons: lesson.lessons,
+          thumbnail: lesson.cover_photo || lesson.thumbnail,
+          cover_photo: lesson.cover_photo,
+          description: lesson.description,
+          difficulty: lesson.difficulty,
+          isFeatured: lesson.isFeatured,
+          data_link: lesson.data_link,
+        })));
+      } catch {
+        if (mounted) setCourses([]);
+      }
+    };
+    loadCourses();
+    return () => { mounted = false; };
+  }, []);
+
   if (selectedCourse) {
     return (
-      <CourseDetailView 
-        course={selectedCourse} 
-        onBack={() => setSelectedCourse(null)} 
-        onStartLearning={onStartLearning} 
-      />
+      <div className="space-y-8">
+        <BackButton onClick={() => setSelectedCourse(null)} label="Back to Academy" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="aspect-video rounded-[2rem] overflow-hidden border border-sun-border bg-sun-surface">
+              <img
+                src={selectedCourse.cover_photo || selectedCourse.thumbnail || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&q=80'}
+                alt={selectedCourse.title}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="space-y-3">
+              <Badge variant="primary" className="!rounded-lg px-3 py-1 text-[10px]">{selectedCourse.category}</Badge>
+              <h2 className="text-3xl sm:text-5xl font-display font-bold text-sun-text-main leading-tight">{selectedCourse.title}</h2>
+              <p className="text-sun-text-muted text-sm sm:text-base leading-relaxed max-w-3xl">
+                {selectedCourse.description}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs font-bold text-sun-text-muted uppercase tracking-widest">
+              <span>{selectedCourse.duration || '10 mins'}</span>
+              <span>•</span>
+              <span>{selectedCourse.lessons || '1 lesson'}</span>
+              <span>•</span>
+              <span>{selectedCourse.difficulty || 'Beginner'}</span>
+            </div>
+          </div>
+          <div className="lg:col-span-4 space-y-4">
+            <div className="glass-card p-6 rounded-[2rem] border-sun-border/40 space-y-5">
+              <div className="flex items-center gap-3">
+                <Avatar src={selectedCourse.thumbnail || `https://i.pravatar.cc/150?u=${selectedCourse.instructor || selectedCourse.title}`} size="sm" />
+                <div>
+                  <p className="font-bold text-sun-text-main">{selectedCourse.instructor}</p>
+                  <p className="text-xs text-sun-text-muted">{selectedCourse.role}</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span>Rating</span><span className="font-bold">{selectedCourse.rating || '4.9'}</span></div>
+                <div className="flex justify-between"><span>Learners</span><span className="font-bold">{selectedCourse.students || '0'}</span></div>
+                <div className="flex justify-between"><span>Price</span><span className="font-bold">${Number(selectedCourse.price || 0).toFixed(2)}</span></div>
+              </div>
+              <Button onClick={onStartLearning} className="w-full rounded-2xl">Start Learning</Button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  const filteredCourses = mockMarketplaceCourses.filter(course => {
+  const filteredCourses = courses.filter(course => {
     const matchesCategory = activeCategory === 'All Skills' || course.category === activeCategory;
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -192,6 +254,59 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
         }, 1200);
       }, 1000);
     }, 1000);
+  };
+
+  const handlePostLecture = async () => {
+    if (!lectureTitle.trim() || !lectureDescription.trim()) {
+      setLectureStatus('Please add a title and description.');
+      return;
+    }
+
+    if (!lectureDataLink.trim()) {
+      setLectureStatus('Please add the private Google Drive data link.');
+      return;
+    }
+
+    const parsedPrice = Number.parseFloat(lecturePrice);
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      setLectureStatus('Please add a valid course price.');
+      return;
+    }
+
+    setLectureSubmitting(true);
+    setLectureStatus('');
+    try {
+      const response = await apiRequest<any>('/lessons', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: lectureTitle,
+          category: lectureCategory,
+          description: lectureDescription,
+          instructor: useUIStore.getState().currentUser?.full_name || useUIStore.getState().currentUser?.username || 'Community Creator',
+          role: 'Community Lecturer',
+          cover_photo_file: lectureCoverPhotoFile || null,
+          data_link: lectureDataLink.trim() || null,
+          price: parsedPrice,
+          duration: '10 mins',
+          lessons: '1 lesson',
+          difficulty: 'Beginner',
+          isFeatured: false,
+        }),
+      }, useUIStore.getState().authToken);
+
+      setCourses((prev) => [response, ...prev]);
+      setLectureTitle('');
+      setLectureDescription('');
+      setLectureCoverPhotoFile('');
+      setLectureCoverPhotoName('');
+      setLectureDataLink('');
+      setLecturePrice('0');
+      setLectureStatus('Lecture posted successfully.');
+    } catch (error) {
+      setLectureStatus(error instanceof Error ? error.message : 'Unable to post lecture.');
+    } finally {
+      setLectureSubmitting(false);
+    }
   };
 
   return (
@@ -243,6 +358,92 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
             exit={{ opacity: 0, y: -15 }}
             className="space-y-12"
           >
+            {/* LECTURE POSTING */}
+            <section className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-sun-text-main">Post a Lecture</h3>
+                  <p className="text-xs text-sun-text-muted mt-1 font-medium">Share a lesson with the community and surface it in the learning feed.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <input
+                  value={lectureTitle}
+                  onChange={(e) => setLectureTitle(e.target.value)}
+                  placeholder="Lecture title"
+                  className="bg-sun-surface border border-sun-border rounded-2xl px-4 py-3 text-sm font-medium text-sun-text-main focus:outline-none focus:ring-2 focus:ring-sun-primary/20"
+                />
+                <select
+                  value={lectureCategory}
+                  onChange={(e) => setLectureCategory(e.target.value)}
+                  className="bg-sun-surface border border-sun-border rounded-2xl px-4 py-3 text-sm font-medium text-sun-text-main focus:outline-none focus:ring-2 focus:ring-sun-primary/20"
+                >
+                  {categories.filter((cat) => cat !== 'All Skills').map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <Button onClick={handlePostLecture} disabled={lectureSubmitting} className="rounded-2xl">
+                  {lectureSubmitting ? 'Posting...' : 'Post Lecture'}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <input
+                  value={lectureDataLink}
+                  onChange={(e) => setLectureDataLink(e.target.value)}
+                  placeholder="Private Google Drive data link"
+                  className="bg-sun-surface border border-sun-border rounded-2xl px-4 py-3 text-sm font-medium text-sun-text-main focus:outline-none focus:ring-2 focus:ring-sun-primary/20"
+                />
+                <input
+                  value={lecturePrice}
+                  onChange={(e) => setLecturePrice(e.target.value)}
+                  placeholder="Course price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="bg-sun-surface border border-sun-border rounded-2xl px-4 py-3 text-sm font-medium text-sun-text-main focus:outline-none focus:ring-2 focus:ring-sun-primary/20"
+                />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <label className="flex flex-col gap-2 bg-sun-surface border border-sun-border rounded-2xl px-4 py-3 text-sm font-medium text-sun-text-main cursor-pointer">
+                  <span className="text-xs font-bold text-sun-text-muted uppercase tracking-widest">Upload Cover Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const optimized = await resizeImageToDataUrl(file);
+                        setLectureCoverPhotoFile(optimized);
+                        setLectureCoverPhotoName(file.name);
+                        setLectureStatus('');
+                      } catch {
+                        setLectureStatus('Could not process the cover photo. Please try a smaller image.');
+                      }
+                    }}
+                  />
+                  <span className="text-xs text-sun-text-muted break-all">
+                    {lectureCoverPhotoName || 'Choose an image to upload to the backend'}
+                  </span>
+                </label>
+                  {lectureCoverPhotoFile && (
+                  <div className="rounded-2xl overflow-hidden border border-sun-border bg-black/20">
+                    <img src={lectureCoverPhotoFile} alt="Cover preview" className="w-full h-40 object-cover" />
+                  </div>
+                )}
+              </div>
+              <textarea
+                value={lectureDescription}
+                onChange={(e) => setLectureDescription(e.target.value)}
+                placeholder="Describe what learners will get from this lecture..."
+                className="w-full min-h-[120px] bg-sun-surface border border-sun-border rounded-[1.5rem] px-4 py-3 text-sm font-medium text-sun-text-main focus:outline-none focus:ring-2 focus:ring-sun-primary/20 resize-none"
+              />
+              {lectureStatus && (
+                <p className="text-xs font-semibold text-sun-text-muted">{lectureStatus}</p>
+              )}
+            </section>
+
             {/* 1. HERO REGION */}
             <header className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-sun-primary/10 via-sun-surface-light/40 to-transparent border border-sun-border p-8 md:p-12 space-y-6">
               <div className="absolute top-0 right-0 w-96 h-96 bg-sun-primary/5 rounded-full blur-[100px] pointer-events-none" />
@@ -316,7 +517,7 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {mockMarketplaceCourses.filter(c => enrolledCourses.includes(c.id)).map((course) => (
+                  {courses.filter(c => enrolledCourses.includes(c.id)).map((course) => (
                     <div key={course.id} className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/40 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 group">
                       <div className="flex justify-between items-start">
                         <div className="min-w-0 flex-1 pr-4">
@@ -384,7 +585,7 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
             <section className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-sun-text-main">{activeCategory} Tracks</h3>
-                <p className="text-xs font-bold text-sun-text-muted uppercase tracking-wider">{filteredCourses.length} available programs</p>
+                <p className="text-xs font-bold text-sun-text-muted uppercase tracking-wider">{filteredCourses.length} available lessons</p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -399,8 +600,7 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
                       className="bg-white dark:bg-sun-surface border border-gray-100 dark:border-sun-border/45 rounded-[2rem] overflow-hidden hover:shadow-premium transition-all duration-300 cursor-pointer group flex flex-col justify-between"
                     >
                       <div className="aspect-video relative overflow-hidden shrink-0 border-b border-gray-100 dark:border-sun-border/20">
-                        <img src={course.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Course Cover" referrerPolicy="no-referrer" />
-                        
+                        <img src={course.cover_photo || course.thumbnail} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Course Cover" referrerPolicy="no-referrer" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                         
                         <span className="absolute top-4 left-4 bg-black/60 text-white backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border border-white/5">
@@ -427,7 +627,7 @@ export const LearnView = ({ onStartLearning, onBack }: { onStartLearning: () => 
 
                       <div className="p-6 space-y-4 flex-1 flex flex-col justify-between bg-sun-surface/10">
                         <div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-sun-primary font-black uppercase tracking-wider mb-1.5">
+                        <div className="flex items-center gap-1.5 text-[10px] text-sun-primary font-black uppercase tracking-wider mb-1.5">
                             <Star size={11} className="fill-current" />
                             {course.rating} • Led by {course.instructor}
                           </div>

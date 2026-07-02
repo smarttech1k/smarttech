@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
@@ -21,19 +21,18 @@ import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { BlockUserModal, ReportModal } from '../../shared/Modals';
 import { BackButton } from '../../ui/BackButton';
+import { apiRequest } from '../../../lib/api';
+import { useUIStore } from '../../../store/uiStore';
 
-const mockPosts = [
-  { id: '1', type: 'video', thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&q=80', views: '12k' },
-  { id: '2', type: 'post', thumbnail: 'https://images.unsplash.com/photo-1586717791821-3f44a563dc4c?w=600&q=80', likes: '1.2k' },
-  { id: '3', type: 'video', thumbnail: 'https://images.unsplash.com/photo-1551434678-e076c223a692?w=600&q=80', views: '8.4k' },
-  { id: '4', type: 'post', thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&q=80', likes: '942' },
-  { id: '5', type: 'video', thumbnail: 'https://images.unsplash.com/photo-1432888622747-4eb9a8f2c20e?w=600&q=80', views: '22k' },
-  { id: '6', type: 'post', thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&q=80', likes: '3.1k' },
-];
+const DEFAULT_BIO = 'Scaling expertise through modular content systems. Building the future of distributed learning. ☀️';
+const DEFAULT_FULL_NAME = 'Sunset User';
 
 export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () => void, onBack?: () => void }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { authToken, currentUser } = useUIStore();
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
   const [activeTab, setActiveTab ] = useState<'posts' | 'saved'>('posts');
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -46,6 +45,27 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
       onBack();
     }
   };
+
+  useEffect(() => {
+    let mounted = true;
+    const loadProfile = async () => {
+      if (!authToken) return;
+      try {
+        const profileId = id || 'me';
+        const response = await apiRequest<any>(`/users/${profileId}`, {}, authToken);
+        if (mounted) setProfile(response);
+        const postResponse = await apiRequest<{ posts: any[] }>(`/posts/user/${profileId}?limit=12&page=1`, {}, authToken);
+        if (mounted) setPosts(postResponse.posts || []);
+      } catch {
+        if (mounted) setProfile(null);
+        if (mounted) setPosts([]);
+      }
+    };
+    loadProfile();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken, id]);
 
   return (
     <div className="space-y-12 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -68,7 +88,7 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
             <BlockUserModal 
               isOpen={isBlockModalOpen} 
               onClose={() => setIsBlockModalOpen(false)} 
-              userName="joshua_wise" 
+              userName={profile?.username || currentUser?.username || 'user'} 
             />
             <ReportModal 
               isOpen={isReportModalOpen} 
@@ -78,10 +98,10 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
 
             {/* Profile Header */}
             <header className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-12 text-center md:text-left">
-              <div className="relative shrink-0">
-                <div className="w-24 h-24 sm:w-40 sm:h-40 rounded-[2.5rem] p-1 bg-gradient-to-tr from-sun-primary to-transparent border border-white/10 shadow-2xl">
-                  <Avatar size="full" src="https://i.pravatar.cc/400?u=me" className="!rounded-[2.2rem]" />
-                </div>
+                <div className="relative shrink-0">
+                  <div className="w-24 h-24 sm:w-40 sm:h-40 rounded-[2.5rem] p-1 bg-gradient-to-tr from-sun-primary to-transparent border border-white/10 shadow-2xl">
+                  <Avatar size="full" src={profile?.avatar_url || currentUser?.avatar_url || `https://i.pravatar.cc/400?u=${profile?.username || currentUser?.username || 'user'}`} className="!rounded-[2.2rem]" />
+                  </div>
                 <div className="absolute -bottom-2 -right-2 bg-sun-primary text-black p-2 rounded-2xl shadow-xl shadow-sun-primary/20 border-4 border-sun-bg">
                   <Award size={18} className="fill-current" />
                 </div>
@@ -89,7 +109,7 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
 
               <div className="flex-1 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 justify-center md:justify-start">
-                  <h1 className="text-2xl sm:text-3xl font-display font-bold">{id === 'me' ? 'joshua_wise' : (id || 'joshua_wise')}</h1>
+                  <h1 className="text-2xl sm:text-3xl font-display font-bold">{profile?.username || currentUser?.username || (id && id !== 'me' ? id : DEFAULT_FULL_NAME)}</h1>
                   <div className="flex gap-2 justify-center">
                     <Button 
                       size="sm" 
@@ -158,20 +178,20 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
 
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <h2 className="text-sm font-bold">Joshua wise</h2>
+                    <h2 className="text-sm font-bold">{profile?.full_name || currentUser?.full_name || DEFAULT_FULL_NAME}</h2>
                     <p className="text-xs text-sun-text-muted uppercase tracking-widest font-black">Wisdom Architect</p>
                   </div>
                   <p className="text-sm text-sun-text-main leading-relaxed max-w-md font-medium">
-                    Scaling expertise through modular content systems. Building the future of distributed learning. ☀️
+                    {profile?.bio || currentUser?.bio || DEFAULT_BIO}
                   </p>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 pt-2">
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sun-text-muted">
                       <MapPin size={14} className="text-sun-primary" />
                       Silicon Valley, CA
                     </div>
-                    <a href="#" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sun-primary hover:underline">
+                    <a href={profile?.website || '#'} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sun-primary hover:underline">
                       <LinkIcon size={14} />
-                      sunsmart.io/joshua
+                      {profile?.website || 'Add website'}
                     </a>
                   </div>
                 </div>
@@ -203,7 +223,7 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
             {/* Grid */}
             <div className="grid grid-cols-3 gap-1 sm:gap-8">
               <AnimatePresence mode="popLayout">
-                {(activeTab === 'posts' ? mockPosts : mockPosts.slice(0, 3)).map((post, i) => (
+                {(activeTab === 'posts' ? posts : posts.slice(0, 3)).map((post, i) => (
                   <motion.div
                     key={post.id}
                     layout
@@ -213,17 +233,17 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
                     transition={{ delay: i * 0.05 }}
                     className="relative aspect-square rounded-[1rem] sm:rounded-[2rem] overflow-hidden group cursor-pointer border border-white/5"
                   >
-                    <img src={post.thumbnail} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Node Thumbnail" />
+                    <img src={post.thumbnail || post.images?.[0] || post.video_url || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&q=80'} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Node Thumbnail" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6">
                       {post.type === 'video' ? (
                         <div className="flex items-center gap-2 text-white font-bold">
                           <Play size={20} className="fill-current" />
-                          <span className="text-sm">{post.views}</span>
+                          <span className="text-sm">{post.views_count ? `${Math.round(post.views_count / 1000)}k` : '0'}</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-white font-bold">
                           <Heart size={20} className="fill-current" />
-                          <span className="text-sm">{post.likes}</span>
+                          <span className="text-sm">{post.likes_count ? `${Math.round(post.likes_count / 1000)}k` : '0'}</span>
                         </div>
                       )}
                     </div>
@@ -250,17 +270,7 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
             </div>
 
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
-              {(subView === 'followers' ? [
-                { id: 1, name: 'Alex Rivers', handle: 'alex_flows', specialty: 'Neural Design', avatar: 'https://i.pravatar.cc/150?u=1' },
-                { id: 2, name: 'Sarah Chen', handle: 'sarah_arch', specialty: 'Data Ethicist', avatar: 'https://i.pravatar.cc/150?u=2' },
-                { id: 3, name: 'Mike Ross', handle: 'mikey_r', specialty: 'Logic Systems', avatar: 'https://i.pravatar.cc/150?u=3' },
-                { id: 4, name: 'Elena Kotto', handle: 'elena_pulse', specialty: 'Bio-Sync Specialist', avatar: 'https://i.pravatar.cc/150?u=4' },
-                { id: 5, name: 'David Park', handle: 'dp_nodes', specialty: 'Visual Quant', avatar: 'https://i.pravatar.cc/150?u=5' },
-              ] : [
-                { id: 6, name: 'Dr. Aris Varma', handle: 'aris_v', specialty: 'Supreme Architect', avatar: 'https://i.pravatar.cc/150?u=6' },
-                { id: 7, name: 'Lila Thorne', handle: 'lila_t', specialty: 'Cognitive Lead', avatar: 'https://i.pravatar.cc/150?u=7' },
-                { id: 8, name: 'Marcus Aurelio', handle: 'marcus_logic', specialty: 'Stoic Systems', avatar: 'https://i.pravatar.cc/150?u=8' },
-              ]).map((user) => (
+              {([] as any[]).map((user) => (
                 <motion.div 
                   key={user.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -315,7 +325,7 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
           >
             <div className="flex flex-col items-center gap-6">
               <div className="relative group cursor-pointer">
-                <Avatar size="xl" src="https://i.pravatar.cc/400?u=me" />
+                      <Avatar size="xl" src={profile?.avatar_url || currentUser?.avatar_url || `https://i.pravatar.cc/400?u=${profile?.username || currentUser?.username || 'user'}`} />
                 <div className="absolute inset-0 bg-black/40 rounded-[2.5rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <Settings size={24} className="text-white" />
                 </div>
@@ -329,13 +339,13 @@ export const ProfileView = ({ onSettingsClick, onBack }: { onSettingsClick?: () 
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Username</label>
-                <div className="p-4 bg-sun-bg rounded-2xl border border-sun-border font-medium text-sm">joshua_wise</div>
+                <div className="p-4 bg-sun-bg rounded-2xl border border-sun-border font-medium text-sm">{profile?.username || currentUser?.username || 'username'}</div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest ml-1 opacity-50">Bio</label>
                 <textarea 
                   className="w-full bg-sun-bg border border-sun-border rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-sun-primary/30 transition-all min-h-[100px] resize-none"
-                  defaultValue="Scaling expertise through modular content systems. Building the future of distributed wisdom. ☀️"
+                  defaultValue={profile?.bio || currentUser?.bio || DEFAULT_BIO}
                 />
               </div>
             </div>

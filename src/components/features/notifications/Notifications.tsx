@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Heart, 
@@ -13,6 +13,9 @@ import {
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { BackButton } from '../../ui/BackButton';
+import { apiRequest } from '../../../lib/api';
+import { useUIStore } from '../../../store/uiStore';
+import { useNavigate } from 'react-router-dom';
 
 type NotificationType = 'all' | 'likes' | 'comments' | 'follows' | 'mentions';
 
@@ -27,52 +30,8 @@ interface Notification {
   timestamp: string;
   isRead: boolean;
   previewImage?: string;
+  targetUrl?: string;
 }
-
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'likes',
-    user: { name: 'Alex Rivera', avatar: 'https://i.pravatar.cc/150?u=12' },
-    content: 'liked your post about "Scaling Wisdom Architecture".',
-    timestamp: '2m ago',
-    isRead: false,
-    previewImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&q=80'
-  },
-  {
-    id: '2',
-    type: 'follows',
-    user: { name: 'Sarah Chen', avatar: 'https://i.pravatar.cc/150?u=2' },
-    content: 'started following you.',
-    timestamp: '1h ago',
-    isRead: false
-  },
-  {
-    id: '3',
-    type: 'comments',
-    user: { name: 'Marcus T.', avatar: 'https://i.pravatar.cc/150?u=3' },
-    content: 'commented: "This logic is incredible, can\'t wait for more!"',
-    timestamp: '3h ago',
-    isRead: true,
-    previewImage: 'https://images.unsplash.com/photo-1551434678-e076c223a692?w=200&q=80'
-  },
-  {
-    id: '4',
-    type: 'mentions',
-    user: { name: 'Zoe Life', avatar: 'https://i.pravatar.cc/150?u=4' },
-    content: 'mentioned you in a thread: "Check out @user\'s perspective on this."',
-    timestamp: 'Yesterday',
-    isRead: true
-  },
-  {
-    id: '5',
-    type: 'likes',
-    user: { name: 'Elena Ray', avatar: 'https://i.pravatar.cc/150?u=5' },
-    content: 'liked your comment on "Advanced UI Systems".',
-    timestamp: '2 days ago',
-    isRead: true
-  }
-];
 
 const NotificationIcon = ({ type }: { type: NotificationType }) => {
   switch (type) {
@@ -85,12 +44,62 @@ const NotificationIcon = ({ type }: { type: NotificationType }) => {
 };
 
 export const NotificationsView = ({ onBack, onExploreClick }: { onBack?: () => void, onExploreClick?: () => void }) => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<NotificationType>('all');
+  const [items, setItems] = useState<Notification[]>([]);
+  const { authToken, currentUser } = useUIStore();
   
-  const filteredNotifications = mockNotifications.filter(n => {
+  useEffect(() => {
+    let mounted = true;
+    const loadNotifications = async () => {
+      if (!authToken) return;
+      try {
+        const response = await apiRequest<{ notifications: Array<{
+          id: string;
+          notification_type: NotificationType;
+          actor: { full_name?: string; username: string; avatar_url?: string };
+          message: string;
+          created_at: string;
+          is_read: boolean;
+          preview_image?: string;
+          target_url?: string;
+        }> }>('/notifications?limit=20', {}, authToken);
+        if (!mounted) return;
+        setItems(response.notifications.map((notification) => ({
+          id: notification.id,
+          type: notification.notification_type,
+          user: {
+            name: notification.actor.full_name || notification.actor.username,
+            avatar: notification.actor.avatar_url || `https://i.pravatar.cc/150?u=${notification.actor.username}`,
+          },
+          content: notification.message,
+          timestamp: new Date(notification.created_at).toLocaleString(),
+          isRead: notification.is_read,
+          previewImage: notification.preview_image,
+          targetUrl: notification.target_url,
+        })));
+      } catch {
+        if (mounted) setItems([]);
+      }
+    };
+    loadNotifications();
+    return () => {
+      mounted = false;
+    };
+  }, [authToken]);
+
+  const filteredNotifications = items.filter(n => {
     if (filter === 'all') return true;
     return n.type === filter;
   });
+
+  const resolveNotificationTarget = (notification: Notification) => {
+    if (notification.targetUrl) return notification.targetUrl;
+    if (notification.type === 'comments') return '/messages';
+    if (notification.type === 'follows') return '/profile/me';
+    if (notification.type === 'mentions') return '/explore';
+    return '/home';
+  };
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -136,6 +145,7 @@ export const NotificationsView = ({ onBack, onExploreClick }: { onBack?: () => v
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
+                  onClick={() => navigate(resolveNotificationTarget(notification))}
                   className={`p-5 sm:p-6 flex items-start gap-4 transition-colors hover:bg-white/5 relative group cursor-pointer ${!notification.isRead ? 'bg-sun-primary/5' : ''}`}
                 >
                   <div className="relative shrink-0">
@@ -168,13 +178,13 @@ export const NotificationsView = ({ onBack, onExploreClick }: { onBack?: () => v
                 </motion.div>
               ))
             ) : (
-              <div className="py-20 text-center space-y-6">
+                  <div className="py-20 text-center space-y-6">
                  <div className="w-20 h-20 bg-sun-surface border border-sun-border rounded-[2rem] flex items-center justify-center mx-auto text-sun-text-muted/30">
                     <Bell size={40} />
                  </div>
                  <div className="space-y-2">
                     <h3 className="text-xl font-display font-bold">Quiet for now</h3>
-                    <p className="text-sun-text-muted text-xs max-w-xs mx-auto font-medium leading-relaxed">No {filter !== 'all' ? filter : ''} notifications to show yet. Stay active to get updates!</p>
+                    <p className="text-sun-text-muted text-xs max-w-xs mx-auto font-medium leading-relaxed">No {filter !== 'all' ? filter : ''} notifications yet.</p>
                  </div>
                  {filter !== 'all' && (
                    <Button variant="outline" size="sm" onClick={() => setFilter('all')}>View all activity</Button>
@@ -190,11 +200,11 @@ export const NotificationsView = ({ onBack, onExploreClick }: { onBack?: () => v
          <div className="flex -space-x-3">
             {[1,2,3].map(i => (
               <div key={i}>
-                <Avatar size="sm" src={`https://i.pravatar.cc/150?u=${i+40}`} className="border-2 border-sun-bg" />
+                <Avatar size="sm" src={i === 1 && currentUser?.avatar_url ? currentUser.avatar_url : `https://i.pravatar.cc/150?u=${i+40}`} className="border-2 border-sun-bg" />
               </div>
             ))}
          </div>
-         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sun-text-muted">Find more people to expert with</p>
+         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sun-text-muted">Find more people to connect with</p>
          <Button variant="secondary" size="sm" className="!rounded-xl px-6" onClick={onExploreClick}>Explore Wisdom Nodes</Button>
       </footer>
     </div>

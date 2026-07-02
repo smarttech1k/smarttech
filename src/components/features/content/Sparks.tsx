@@ -3,48 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Heart, MessageCircle, Share2, Music, Bookmark, MoreVertical, Plus, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { Avatar } from '../../ui/Avatar';
 
-const mockReels = [
-  {
-    id: 1,
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-lighting-in-the-city-at-night-21251-large.mp4',
-    author: { name: 'codemaster_x', avatar: 'https://i.pravatar.cc/150?u=1', followed: false },
-    description: 'Quick CSS trick for glowing modern glassmorphic cards! Level up your container designs in 30 seconds. 🚀💻 #learning #webdev #css #design #tips',
-    music: 'Lofi Coding Beats - Synthwave Remix',
-    likes: '14.2k',
-    comments: '342',
-    shares: '2.1k'
-  },
-  {
-    id: 2,
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-leaves-on-a-sunny-day-1587-large.mp4',
-    author: { name: 'mindset_coach', avatar: 'https://i.pravatar.cc/150?u=2', followed: true },
-    description: '3 daily focus hacks to eliminate procrastination instantly. Build systems, not just habits! 🍂💡 #productivity #focus #mindset #growth #mentor',
-    music: 'Lo-Fi Study Moods - Chill Instrumental',
-    likes: '29.4k',
-    comments: '1,120',
-    shares: '8.4k'
-  },
-  {
-    id: 3,
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-rendering-of-a-futuristic-city-with-traffic-at-night-42410-large.mp4',
-    author: { name: 'startup_insight', avatar: 'https://i.pravatar.cc/150?u=3', followed: false },
-    description: 'The standard SaaS tech stack in 2026. Microservices vs. Monoliths for modern applications. Scale with confidence. 🌐⚡ #tech #scaling #startup #ideas',
-    music: 'Digital Acceleration - Tech Wave',
-    likes: '51.8k',
-    comments: '2.4k',
-    shares: '14.3k'
-  },
-  {
-    id: 4,
-    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-clouds-moving-fast-over-a-mountain-4358-large.mp4',
-    author: { name: 'creative_spark', avatar: 'https://i.pravatar.cc/150?u=4', followed: false },
-    description: 'Finding inspiration in daily life. Creativity is a habit, not random lightning. Start today. ⛰️🎨 #creative #inspiration #motivation #mentor',
-    music: 'Ethereal Space - Ambient Focus',
-    likes: '9.5k',
-    comments: '118',
-    shares: '954'
-  }
-];
+const mockReels: Reel[] = [];
 
 interface Reel {
   id: number;
@@ -264,7 +223,9 @@ const ReelItem: React.FC<{ reel: Reel; isActive: boolean; isMuted: boolean; togg
               className="w-10 h-10 rounded-full border-[3px] border-sun-primary/50 bg-black p-0.5"
             >
                 <div className="w-full h-full rounded-full overflow-hidden">
-                  <img src={reel.author.avatar} alt="music icon" className="w-full h-full object-cover" />
+                  <div className="w-full h-full bg-sun-primary/20 flex items-center justify-center text-[10px] font-black text-white">
+                    {reel.author.name.slice(0, 2).toUpperCase()}
+                  </div>
                 </div>
             </motion.div>
         </div>
@@ -334,16 +295,35 @@ export const SparksView = () => {
         ref={containerRef}
         className="h-full w-full max-w-none md:max-w-[450px] snap-y snap-mandatory overflow-y-auto scrollbar-hide bg-sun-bg md:border-x md:border-sun-border"
       >
-        {mockReels.map((reel, index) => (
-          <div key={reel.id} data-reel="item" data-index={index} className="h-full w-full snap-start">
-            <ReelItem 
-              reel={reel} 
-              isActive={activeReelIndex === index} 
-              isMuted={isMuted}
-              toggleMute={() => setIsMuted(prev => !prev)}
-            />
+        {mockReels.length > 0 ? (
+          mockReels.map((reel, index) => (
+            <div key={reel.id} data-reel="item" data-index={index} className="h-full w-full snap-start">
+              <ReelItem 
+                reel={reel} 
+                isActive={activeReelIndex === index} 
+                isMuted={isMuted}
+                toggleMute={() => setIsMuted(prev => !prev)}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="h-full flex items-center justify-center px-6">
+            <div className="max-w-sm text-center space-y-5">
+              <div className="w-20 h-20 mx-auto rounded-[1.75rem] bg-gradient-to-br from-sun-primary/20 via-sun-primary/10 to-transparent text-sun-primary flex items-center justify-center border border-sun-primary/25 shadow-2xl shadow-sun-primary/10">
+                <Music size={32} />
+              </div>
+              <div className="space-y-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full border border-sun-primary/20 bg-sun-primary/10 text-sun-primary text-[10px] font-black uppercase tracking-[0.25em]">
+                  Coming Soon
+                </span>
+                <h2 className="text-2xl font-bold text-sun-text-main">Video Sparks are on the way</h2>
+              </div>
+              <p className="text-sm text-sun-text-muted leading-relaxed">
+                This section will feature short-form video Sparks once the first creator uploads arrive. For now, we’re keeping it clean instead of filling it with placeholder clips.
+              </p>
+            </div>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

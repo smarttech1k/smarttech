@@ -41,6 +41,7 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
 import { BackButton } from '../../ui/BackButton';
 import { Avatar } from '../../ui/Avatar';
+import { apiRequest } from '../../../lib/api';
 
 type PostType = 'text' | 'photo' | 'video';
 type CreateStep = 'drafting' | 'review' | 'success';
@@ -64,7 +65,7 @@ interface PostState {
 
 export const CreateView = ({ onBack }: { onBack?: () => void }) => {
   const navigate = useNavigate();
-  const { addRecentPost } = useUIStore();
+  const { addRecentPost, currentUser } = useUIStore();
   const [postType, setPostType] = useState<PostType>('photo');
   const [step, setStep] = useState<CreateStep>('drafting');
   const [post, setPost] = useState<PostState>({
@@ -126,21 +127,55 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
 
   const handlePublish = () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      
+    apiRequest(
+      '/posts',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          type: post.type,
+          body: post.caption,
+          title: post.caption.slice(0, 80) || 'New post',
+          thumbnail: typeof post.files[0] === 'string' ? post.files[0] : undefined,
+          imageUrl: typeof post.files[0] === 'string' ? post.files[0] : undefined,
+          videoUrl: typeof post.video === 'string' ? post.video : undefined,
+        }),
+      },
+      useUIStore.getState().authToken,
+    ).then((created: any) => {
       const newPost = {
-        thumbnail: post.files[0] || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80',
-        author: { name: 'joshua_wise', avatar: 'https://i.pravatar.cc/150?u=me', verified: true },
+        thumbnail: created.thumbnail || (post.files.length > 0 ? post.files[0] : undefined),
+        image: created.thumbnail || (post.files.length > 0 ? post.files[0] : undefined),
+        type: post.type,
+        author: {
+          name: currentUser?.username || currentUser?.full_name || 'You',
+          avatar: currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`,
+          verified: true,
+        },
+        description: created.body || post.caption,
+        likes: '0',
+        comments: '0',
+        createdAt: created.created_at || new Date().toISOString()
+      };
+      addRecentPost(newPost);
+      setStep('success');
+    }).catch(() => {
+      const newPost = {
+        thumbnail: post.files.length > 0 ? post.files[0] : undefined,
+        image: post.files.length > 0 ? post.files[0] : undefined,
+        type: post.type,
+        author: {
+          name: currentUser?.username || currentUser?.full_name || 'You',
+          avatar: currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`,
+          verified: true,
+        },
         description: post.caption,
         likes: '0',
         comments: '0',
         createdAt: new Date().toISOString()
       };
-      
       addRecentPost(newPost);
       setStep('success');
-    }, 2000);
+    }).finally(() => setIsSaving(false));
   };
 
   const DiscardModal = () => (
@@ -215,9 +250,9 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
         <div className={`mx-auto bg-sun-surface rounded-[2.5rem] border border-sun-border overflow-hidden transition-all duration-500 shadow-2xl ${isPreviewDesktop ? 'w-full aspect-video' : 'w-64 aspect-[9/16]'}`}>
           <div className="h-full flex flex-col">
             <div className="p-4 flex items-center gap-3 border-b border-sun-border/50">
-              <Avatar size="sm" src="https://i.pravatar.cc/150?u=me" />
+              <Avatar size="sm" src={currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`} />
               <div>
-                <p className="text-[10px] font-bold">@creative_learner</p>
+                <p className="text-[10px] font-bold">@{currentUser?.username || 'creator'}</p>
                 <div className="flex items-center gap-1">
                   <Globe size={8} className="text-sun-text-muted" />
                   <p className="text-[8px] text-sun-text-muted">Now • Public</p>
@@ -408,9 +443,9 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                 {/* Caption / Text Editor */}
                 <div className="glass-card rounded-[2.5rem] p-6 md:p-8 space-y-6 border-sun-border/30">
                   <div className="flex items-center gap-4 mb-2">
-                    <Avatar size="md" src="https://i.pravatar.cc/150?u=me" className="ring-2 ring-sun-primary/20" />
+                    <Avatar size="md" src={currentUser?.avatar_url || `https://i.pravatar.cc/150?u=${currentUser?.username || 'me'}`} className="ring-2 ring-sun-primary/20" />
                     <div>
-                      <h4 className="text-sm font-bold">@creative_learner</h4>
+                      <h4 className="text-sm font-bold">@{currentUser?.username || 'creator'}</h4>
                       <p className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">Sharing my vibe</p>
                     </div>
                   </div>
@@ -628,4 +663,3 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
     </div>
   );
 };
-
