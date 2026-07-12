@@ -1,121 +1,131 @@
-import React from 'react';
-import { motion } from 'motion/react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  HeroSection, 
-  PromptBar, 
-  QuickActionCards, 
-  LearningRecommendations, 
-  CommunityPost, 
-  CreatorSpotlight, 
+import {
+  HeroSection,
+  PromptBar,
+  QuickActionCards,
+  LearningRecommendations,
+  CommunityPost,
+  CreatorSpotlight,
   TrendingDiscussions,
   PostType,
-  PostProps
+  PostProps,
 } from '../features/home/HomeComponents';
-import { Badge } from '../ui/Input';
+import {
+  fetchFeed,
+  FeedPost,
+  likePost,
+  unlikePost,
+  addComment,
+} from '../../lib/feed';
 
 export const HomeView = () => {
   const navigate = useNavigate();
+  const [feed, setFeed] = useState<PostProps[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Premium mock community posts aligned with Korusa creative and social focus
-  const mockActivityFeed: PostProps[] = [
-    {
-      id: 'post-1',
-      type: 'Idea' as PostType,
-      author: {
-        name: 'Julian Thorne',
-        handle: 'j_thorne',
-        avatar: 'https://i.pravatar.cc/150?u=10',
-        role: 'Acoustic Musician & Singer',
-        isExpert: true
-      },
-      content: "Just posted a new 1-minute lesson on fingerpicking patterns. It's my first Spark video here! I'm looking for some friendly feedback on the pacing, or if anyone wants to team up for a duet on the next video, drop a comment! Let's create some music together.",
-      image: "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=1200&q=80",
-      likes: 128,
-      comments: 32,
-      time: '12m ago'
-    },
-    {
-      id: 'post-2',
-      type: 'Recommendation' as PostType,
-      author: {
-        name: 'Elena Vance',
-        handle: 'evance_design',
-        avatar: 'https://i.pravatar.cc/150?u=11',
-        role: 'Creative Storyteller'
-      },
-      content: "If you're trying to grow on social channels, the biggest secret is formatting the first 3 seconds as an inviting visual hook. Just finished a great micro-lesson by Sarah Chen. It totally transformed my pacing! Highly recommend checking it out in the Learn section.",
-      image: "https://images.unsplash.com/photo-1542435503-956c469947f6?w=1200&q=80",
-      likes: 94,
-      comments: 14,
-      time: '2 hours ago'
-    },
-    {
-      id: 'post-3',
-      type: 'SystemUpdate' as PostType,
-      author: {
-        name: 'Marcus Bell',
-        handle: 'mbell_social',
-        avatar: 'https://i.pravatar.cc/150?u=15',
-        role: 'Digital Art Creator'
-      },
-      content: "Who wants to do an informal art feedback cozy hour tomorrow? We'll jump on a chat, share some of our current sketch files, and share tips on color theory. Absolutely friendly vibes—let me know if you want an invite!",
-      likes: 42,
-      comments: 29,
-      time: '4 hours ago'
+  const loadFeed = async () => {
+    try {
+      setLoading(true);
+      setErrorMessage('');
+
+      const { posts, currentUserId } = await fetchFeed();
+      setCurrentUserId(currentUserId);
+
+      const mappedPosts: PostProps[] = posts.map((post: FeedPost) => ({
+        id: post.id,
+        type: 'Idea' as PostType,
+        author: {
+          name: post.profiles?.full_name || post.profiles?.username || 'Unknown User',
+          handle: post.profiles?.username || 'unknown',
+          avatar: post.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${post.id}`,
+          role: 'Community Member',
+          isExpert: false,
+        },
+        content: post.content,
+        image: post.media_url || undefined,
+        likes: post.likes?.length || 0,
+        comments: post.comments?.length || 0,
+        commentItems: post.comments || [],
+        time: formatRelativeTime(post.created_at),
+        likedByMe:
+          !!currentUserId && post.likes?.some((like) => like.user_id === currentUserId),
+      }));
+
+      setFeed(mappedPosts);
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Failed to load feed.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadFeed();
+  }, []);
 
   const handleSparkNavigation = () => {
     navigate('/sparks');
   };
 
-  const handleLearnNavigation = (courseId?: string) => {
-    if (courseId) {
-      navigate('/learn');
-    } else {
-      navigate('/learn');
-    }
+  const handleLearnNavigation = () => {
+    navigate('/learn');
   };
 
   const handleProjectNavigation = () => {
     navigate('/explore');
   };
 
+  const handleLikeToggle = async (postId: string, currentlyLiked: boolean) => {
+    if (!currentUserId) return;
+
+    if (currentlyLiked) {
+      await unlikePost(postId, currentUserId);
+    } else {
+      await likePost(postId, currentUserId);
+    }
+  };
+
+  const handleCommentSubmit = async (postId: string, content: string) => {
+    if (!currentUserId) return;
+
+    await addComment(postId, currentUserId, content);
+    await loadFeed();
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pb-24 max-w-[1400px] mx-auto">
-      {/* Left and Center Main Content Flow */}
       <div className="lg:col-span-8 space-y-10">
-        
-        {/* 1. PROMPT BAR (MODERN WRITE-BOX) */}
         <PromptBar onFocus={() => navigate('/create')} />
 
-        {/* 2. WELCOME HERO SECTION */}
-        <HeroSection 
-          onExplore={() => navigate('/explore')} 
-          onLearn={() => navigate('/learn')} 
+        <HeroSection
+          onExplore={() => navigate('/explore')}
+          onLearn={() => navigate('/learn')}
         />
 
-        {/* 3. QUICK ACTION TILES */}
-        <QuickActionCards 
+        <QuickActionCards
           onSparkClick={handleSparkNavigation}
-          onCourseClick={() => handleLearnNavigation()}
+          onCourseClick={handleLearnNavigation}
           onProjectClick={handleProjectNavigation}
         />
 
-        {/* 4. LEARNING RECOMMENDATIONS CARD BLOCK */}
-        <LearningRecommendations 
-          onCourseClick={(id) => handleLearnNavigation(id)} 
+        <LearningRecommendations
+          onCourseClick={() => handleLearnNavigation()}
         />
 
-        {/* 5. FEED STREAM HEADER */}
         <div className="space-y-6">
           <div className="flex items-center justify-between px-1">
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-sun-text-main">Community Activity</h2>
-              <p className="text-xs text-sun-text-muted mt-0.5">High engaging discussions and insights</p>
+              <h2 className="text-xl font-bold tracking-tight text-sun-text-main">
+                Community Activity
+              </h2>
+              <p className="text-xs text-sun-text-muted mt-0.5">
+                High engaging discussions and insights
+              </p>
             </div>
-            
+
             <div className="flex bg-sun-surface p-1 rounded-xl border border-sun-border">
               <button className="px-4 py-1.5 bg-sun-primary text-white font-bold text-xxs lowercase first-letter:uppercase rounded-lg tracking-wider transition-all">
                 Trending
@@ -126,11 +136,28 @@ export const HomeView = () => {
             </div>
           </div>
 
-          {/* STREAM RENDER */}
+          {loading && (
+            <div className="rounded-2xl border border-sun-border bg-sun-surface p-6 text-sm text-sun-text-muted">
+              Loading feed...
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-6 text-sm text-red-400">
+              {errorMessage}
+            </div>
+          )}
+
+          {!loading && !errorMessage && feed.length === 0 && (
+            <div className="rounded-2xl border border-sun-border bg-sun-surface p-6 text-sm text-sun-text-muted">
+              No posts yet. Be the first to create one.
+            </div>
+          )}
+
           <div className="space-y-6">
-            {mockActivityFeed.map((post) => (
-              <CommunityPost 
-                key={post.id} 
+            {feed.map((post) => (
+              <CommunityPost
+                key={post.id}
                 id={post.id}
                 type={post.type}
                 author={post.author}
@@ -138,31 +165,48 @@ export const HomeView = () => {
                 image={post.image}
                 likes={post.likes}
                 comments={post.comments}
+                commentItems={post.commentItems}
                 time={post.time}
+                likedByMe={post.likedByMe}
+                onLikeToggle={handleLikeToggle}
+                onCommentSubmit={handleCommentSubmit}
               />
             ))}
           </div>
         </div>
 
-        {/* Load More Trigger */}
         <div className="flex justify-center pt-4">
-          <button 
-            onClick={() => navigate('/explore')}
+          <button
+            onClick={() => navigate('/create')}
             className="px-8 py-3.5 bg-sun-surface border border-sun-border hover:border-sun-primary text-sun-text-main hover:text-sun-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm"
           >
-            Explore More Activity
+            Create a Post
           </button>
         </div>
       </div>
 
-      {/* Right-Hand Meta Column (Visible on screens larger than lg) */}
       <div className="hidden lg:block lg:col-span-4 space-y-8 sticky top-24">
-        {/* Creator Spotlight Widget */}
         <CreatorSpotlight />
-
-        {/* Trending Tags and Threads */}
         <TrendingDiscussions />
       </div>
     </div>
   );
 };
+
+function formatRelativeTime(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+
+  const minutes = Math.floor(diffMs / (1000 * 60));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  return date.toLocaleDateString();
+}
