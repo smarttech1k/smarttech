@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import {
   Upload,
-  Scissors,
   Type,
   Image as ImageIcon,
   Video as VideoIcon,
@@ -36,11 +35,16 @@ type PostType = 'text' | 'photo' | 'video';
 type CreateStep = 'drafting' | 'success';
 type Audience = 'public' | 'followers' | 'private';
 
+interface SelectedMedia {
+  file: File;
+  previewUrl: string;
+}
+
 interface PostState {
   type: PostType;
   caption: string;
-  files: string[];
-  video: string | null;
+  files: SelectedMedia[];
+  video: SelectedMedia | null;
   audience: Audience;
   location: string;
   tags: string[];
@@ -82,6 +86,13 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
     setPost((prev) => ({ ...prev, type: postType }));
   }, [postType]);
 
+  useEffect(() => {
+    return () => {
+      post.files.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      if (post.video) URL.revokeObjectURL(post.video.previewUrl);
+    };
+  }, [post.files, post.video]);
+
   const hasContent =
     post.caption.trim().length > 0 || post.files.length > 0 || post.video !== null;
 
@@ -98,19 +109,88 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
     if (uploadedFiles.length === 0) return;
 
     if (post.type === 'photo') {
-      const newFiles = uploadedFiles.map((file) => URL.createObjectURL(file));
+      const newFiles: SelectedMedia[] = uploadedFiles.map((file) => ({
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+
       setPost((prev) => ({ ...prev, files: [...prev.files, ...newFiles] }));
     } else if (post.type === 'video' && uploadedFiles.length > 0) {
-      const videoUrl = URL.createObjectURL(uploadedFiles[0]);
-      setPost((prev) => ({ ...prev, video: videoUrl }));
+      const file = uploadedFiles[0];
+      setPost((prev) => ({
+        ...prev,
+        video: {
+          file,
+          previewUrl: URL.createObjectURL(file),
+        },
+      }));
     }
+
+    e.target.value = '';
   };
 
   const removeFile = (index: number) => {
-    setPost((prev) => ({
-      ...prev,
-      files: prev.files.filter((_, i) => i !== index),
-    }));
+    setPost((prev) => {
+      const removed = prev.files[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+
+      return {
+        ...prev,
+        files: prev.files.filter((_, i) => i !== index),
+      };
+    });
+  };
+
+  const resetDraft = () => {
+    post.files.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    if (post.video) URL.revokeObjectURL(post.video.previewUrl);
+
+    setPost({
+      type: 'photo',
+      caption: '',
+      files: [],
+      video: null,
+      audience: 'public',
+      location: '',
+      tags: [],
+      mentions: [],
+      isScheduled: false,
+      scheduleTime: '',
+      isSponsored: false,
+      courseLink: '',
+    });
+    setPostType('photo');
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  const uploadMediaAndGetUrl = async (userId: string): Promise<string | null> => {
+    const fileToUpload =
+      post.type === 'photo'
+        ? post.files[0]?.file || null
+        : post.type === 'video'
+        ? post.video?.file || null
+        : null;
+
+    if (!fileToUpload) return null;
+
+    const ext = fileToUpload.name.split('.').pop() || 'bin';
+    const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const path = `${userId}/${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('post-media')
+      .upload(path, fileToUpload, {
+        upsert: false,
+        contentType: fileToUpload.type,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from('post-media').getPublicUrl(path);
+    return data.publicUrl;
   };
 
   const handlePublish = async () => {
@@ -123,14 +203,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
     }
 
     if (!post.caption.trim()) {
-      setErrorMessage('Caption/content is required for now.');
-      return;
-    }
-
-    if (post.files.length > 0 || post.video) {
-      setErrorMessage(
-        'Media upload is not wired yet. For now, publish text-only posts first.'
-      );
+      setErrorMessage('Caption/content is required.');
       return;
     }
 
@@ -142,23 +215,18 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
         error: authError,
       } = await supabase.auth.getUser();
 
-      if (authError) {
-        throw authError;
-      }
+      if (authError) throw authError;
+      if (!user) throw new Error('You must be signed in to create a post.');
 
-      if (!user) {
-        throw new Error('You must be signed in to create a post.');
-      }
+      const mediaUrl = await uploadMediaAndGetUrl(user.id);
 
       const { error } = await supabase.from('posts').insert({
         user_id: user.id,
         content: post.caption.trim(),
-        media_url: null,
+        media_url: mediaUrl,
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setSuccessMessage('Post shared successfully.');
       setStep('success');
@@ -192,7 +260,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
             <div className="space-y-2">
               <h3 className="text-xl font-bold">Discard post?</h3>
               <p className="text-sm text-sun-text-muted">
-                If you leave now, you'll lose all your progress on this post.
+                If you leave now, you&apos;ll lose all your progress on this post.
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -230,9 +298,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
             <button
               onClick={() => setIsPreviewDesktop(true)}
               className={`p-1.5 rounded-md transition-all ${
-                isPreviewDesktop
-                  ? 'bg-sun-primary text-black'
-                  : 'text-sun-text-muted hover:text-sun-text-main'
+                isPreviewDesktop ? 'bg-sun-primary text-black' : 'text-sun-text-muted hover:text-sun-text-main'
               }`}
             >
               <Monitor size={14} />
@@ -240,9 +306,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
             <button
               onClick={() => setIsPreviewDesktop(false)}
               className={`p-1.5 rounded-md transition-all ${
-                !isPreviewDesktop
-                  ? 'bg-sun-primary text-black'
-                  : 'text-sun-text-muted hover:text-sun-text-main'
+                !isPreviewDesktop ? 'bg-sun-primary text-black' : 'text-sun-text-muted hover:text-sun-text-main'
               }`}
             >
               <Smartphone size={14} />
@@ -271,23 +335,27 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
               {post.type === 'photo' && post.files.length > 0 && (
                 <div className="w-full aspect-square bg-black">
                   <img
-                    src={post.files[0]}
+                    src={post.files[0].previewUrl}
                     className="w-full h-full object-cover"
                     alt="Preview"
                   />
                 </div>
               )}
+
               {post.type === 'video' && post.video && (
-                <div className="w-full h-full bg-black flex items-center justify-center text-white/40">
-                  Video selected
+                <div className="w-full h-full bg-black">
+                  <video
+                    src={post.video.previewUrl}
+                    className="w-full h-full object-cover"
+                    controls
+                  />
                 </div>
               )}
+
               <div className="p-4 space-y-2">
                 <p
                   className={`text-xs leading-relaxed ${
-                    post.caption
-                      ? 'text-sun-text-main'
-                      : 'text-sun-text-muted italic'
+                    post.caption ? 'text-sun-text-main' : 'text-sun-text-muted italic'
                   }`}
                 >
                   {post.caption || 'Your post caption will appear here...'}
@@ -389,9 +457,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                     key={type}
                     onClick={() => setPostType(type)}
                     className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[1.5rem] transition-all relative z-10 ${
-                      postType === type
-                        ? 'text-black'
-                        : 'text-sun-text-muted hover:text-sun-text-main'
+                      postType === type ? 'text-black' : 'text-sun-text-muted hover:text-sun-text-main'
                     }`}
                   >
                     {postType === type && (
@@ -444,7 +510,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                             className="relative h-full aspect-square rounded-2xl overflow-hidden border border-sun-border shrink-0 group/img"
                           >
                             <img
-                              src={file}
+                              src={file.previewUrl}
                               className="w-full h-full object-cover"
                               alt="Upload"
                             />
@@ -465,11 +531,16 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                         </button>
                       </div>
                     ) : postType === 'video' && post.video ? (
-                      <div className="w-full h-full relative group/vid">
-                        <video src={post.video} className="w-full h-full object-cover" />
+                      <div className="w-full h-full relative">
+                        <video
+                          src={post.video.previewUrl}
+                          className="w-full h-full object-cover"
+                          controls
+                        />
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (post.video) URL.revokeObjectURL(post.video.previewUrl);
                             setPost((p) => ({ ...p, video: null }));
                           }}
                           className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-xl hover:bg-red-500 transition-colors"
@@ -487,11 +558,12 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                             Add {postType === 'photo' ? 'photos' : 'videos'}
                           </p>
                           <p className="text-xs text-sun-text-muted">
-                            media preview works now; upload wiring comes next
+                            upload real media and publish to Supabase
                           </p>
                         </div>
                       </>
                     )}
+
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -559,9 +631,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                       <div className="ml-auto flex items-center gap-4">
                         <span
                           className={`text-[10px] font-black tracking-widest ${
-                            post.caption.length > 2200
-                              ? 'text-red-500'
-                              : 'text-sun-text-muted'
+                            post.caption.length > 2200 ? 'text-red-500' : 'text-sun-text-muted'
                           }`}
                         >
                           {post.caption.length} / 2200
@@ -758,23 +828,7 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                 variant="secondary"
                 onClick={() => {
                   setStep('drafting');
-                  setErrorMessage('');
-                  setSuccessMessage('');
-                  setPost({
-                    type: 'photo',
-                    caption: '',
-                    files: [],
-                    video: null,
-                    audience: 'public',
-                    location: '',
-                    tags: [],
-                    mentions: [],
-                    isScheduled: false,
-                    scheduleTime: '',
-                    isSponsored: false,
-                    courseLink: '',
-                  });
-                  setPostType('photo');
+                  resetDraft();
                 }}
                 className="!rounded-2xl h-14 text-sm font-bold"
               >

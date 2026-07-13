@@ -110,3 +110,17 @@ export async function addComment(postId: string, userId: string, content: string
     throw error;
   }
 }
+export async function fetchCreatorSpotlight(limit = 3) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, full_name, avatar_url, bio')
+    .not('username', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}

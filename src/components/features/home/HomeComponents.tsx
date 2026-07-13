@@ -19,7 +19,6 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
 
-// 1. HERO SECTION
 export const HeroSection = ({
   onExplore,
   onLearn,
@@ -73,7 +72,6 @@ export const HeroSection = ({
   );
 };
 
-// 2. PROMPT BAR
 export const PromptBar = ({ onFocus }: { onFocus?: () => void }) => {
   return (
     <div className="relative w-full">
@@ -97,7 +95,6 @@ export const PromptBar = ({ onFocus }: { onFocus?: () => void }) => {
   );
 };
 
-// 3. QUICK ACTION CARDS
 export const QuickActionCards = ({
   onSparkClick,
   onCourseClick,
@@ -144,10 +141,7 @@ export const QuickActionCards = ({
         >
           <div className="flex items-center justify-between">
             <div className={`p-3 rounded-xl ${act.color} ring-4 ring-black/5`}>{act.icon}</div>
-            <ArrowRight
-              size={16}
-              className="text-sun-text-muted group-hover:text-sun-primary transition-all"
-            />
+            <ArrowRight size={16} className="text-sun-text-muted group-hover:text-sun-primary transition-all" />
           </div>
           <div>
             <h4 className="font-bold text-sun-text-main text-base group-hover:text-sun-primary transition-colors">
@@ -161,7 +155,6 @@ export const QuickActionCards = ({
   );
 };
 
-// 4. LEARNING RECOMMENDATIONS
 export const LearningRecommendations = ({
   onCourseClick,
 }: {
@@ -220,9 +213,7 @@ export const LearningRecommendations = ({
             className={`bg-sun-surface border ${course.color} p-6 rounded-2xl hover:shadow-premium transition-all duration-300 cursor-pointer group hover:border-sun-primary/40`}
           >
             <div className="flex justify-between items-start mb-4">
-              <span
-                className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-sun-bg ${course.accent}`}
-              >
+              <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-sun-bg ${course.accent}`}>
                 {course.category}
               </span>
               <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500">
@@ -253,15 +244,15 @@ export const LearningRecommendations = ({
   );
 };
 
-// 5. COMMUNITY ACTIVITY
 export type PostType = 'Recommendation' | 'Idea' | 'SystemUpdate';
 
 export interface PostProps {
   id: string;
   type: PostType;
   author: {
-    name: string;
-    handle: string;
+  id: string;
+  name: string;
+  handle: string;
     avatar: string;
     isExpert?: boolean;
     role: string;
@@ -286,6 +277,7 @@ export interface PostProps {
   }>;
   onLikeToggle?: (postId: string, currentlyLiked: boolean) => Promise<void> | void;
   onCommentSubmit?: (postId: string, content: string) => Promise<void> | void;
+  onOpenProfile?: (profileIdOrUsername: string) => void;
 }
 
 export const CommunityPost: React.FC<PostProps> = ({
@@ -301,6 +293,7 @@ export const CommunityPost: React.FC<PostProps> = ({
   commentItems = [],
   onLikeToggle,
   onCommentSubmit,
+  onOpenProfile,
 }) => {
   const [liked, setLiked] = useState(likedByMe);
   const [likesCount, setLikesCount] = useState(likes);
@@ -380,6 +373,8 @@ export const CommunityPost: React.FC<PostProps> = ({
       style: 'bg-slate-500/10 text-slate-600',
     };
 
+  const profileTarget = author.handle || author.id;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -388,9 +383,13 @@ export const CommunityPost: React.FC<PostProps> = ({
       className="bg-sun-surface border border-sun-border p-6 rounded-2xl hover:shadow-premium transition-all duration-300"
     >
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <Avatar src={author.avatar} size="sm" className="ring-2 ring-sun-primary/10" />
-          <div>
+  <button
+    type="button"
+    onClick={() => onOpenProfile?.(profileTarget)}
+    className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
+  >
+    <Avatar src={author.avatar} size="sm" className="ring-2 ring-sun-primary/10" />
+    <div>
             <div className="flex items-center gap-1.5">
               <h4 className="text-sm font-bold text-sun-text-main leading-tight">
                 {author.name}
@@ -403,10 +402,9 @@ export const CommunityPost: React.FC<PostProps> = ({
               {author.role} • {time}
             </p>
           </div>
-        </div>
-        <span
-          className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${label.style}`}
-        >
+        </button>
+
+        <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${label.style}`}>
           {label.text}
         </span>
       </div>
@@ -420,7 +418,7 @@ export const CommunityPost: React.FC<PostProps> = ({
           <div className="rounded-xl overflow-hidden border border-sun-border/40 aspect-video relative">
             <img
               src={image}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-black"
               alt="Community Activity"
               referrerPolicy="no-referrer"
             />
@@ -535,25 +533,19 @@ function formatCommentTime(dateString: string) {
   return date.toLocaleDateString();
 }
 
-// 6. CREATOR SPOTLIGHT
-export const CreatorSpotlight = () => {
-  const creators = [
-    {
-      name: 'Pranav Raj',
-      role: 'Motion Designer & 3D Artist',
-      avatar: 'https://i.pravatar.cc/150?u=pranav',
-      rating: '5.0',
-      skills: ['Framer Motion', 'VFX', 'Art'],
-    },
-    {
-      name: 'Tanya Sinclair',
-      role: 'Creative Director & UX Guru',
-      avatar: 'https://i.pravatar.cc/150?u=tanya',
-      rating: '4.9',
-      skills: ['Typography', 'Color Theory', 'Storyboarding'],
-    },
-  ];
-
+export const CreatorSpotlight = ({
+  creators,
+  onOpenProfile,
+}: {
+  creators: Array<{
+    id: string;
+    username: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+    bio?: string | null;
+  }>;
+  onOpenProfile: (profileIdOrUsername: string) => void;
+}) => {
   return (
     <section className="bg-sun-surface border border-sun-border p-6 rounded-2xl space-y-5">
       <div className="flex items-center justify-between">
@@ -561,45 +553,58 @@ export const CreatorSpotlight = () => {
           Creator Spotlight
         </h3>
         <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-xs font-black uppercase tracking-widest px-2 py-0.5">
-          Top Voted
+          Real Profiles
         </Badge>
       </div>
 
       <div className="space-y-4">
-        {creators.map((c, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 p-3 rounded-xl hover:bg-sun-bg transition-colors cursor-pointer group"
-          >
-            <Avatar src={c.avatar} size="sm" className="ring-2 ring-sun-primary/20" />
-            <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-bold text-sun-text-main truncate group-hover:text-sun-primary transition-colors flex items-center gap-1">
-                {c.name}
-                <span className="text-[10px] text-amber-500 font-normal">★ {c.rating}</span>
-              </h4>
-              <p className="text-[10px] text-sun-text-muted truncate mt-0.5">{c.role}</p>
-              <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                {c.skills.slice(0, 2).map((skill) => (
-                  <span
-                    key={skill}
-                    className="text-[8px] font-medium px-1.5 py-0.5 bg-sun-bg border border-sun-border/30 rounded text-sun-text-muted"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <button className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1.5 bg-sun-primary text-white hover:bg-sun-primary/90 rounded-md transition-colors shrink-0">
-              Follow
-            </button>
+        {creators.length === 0 ? (
+          <div className="text-xs text-sun-text-muted">
+            No creators available yet.
           </div>
-        ))}
+        ) : (
+          creators.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => onOpenProfile(c.username || c.id)}
+              className="flex items-center gap-3 p-3 rounded-xl hover:bg-sun-bg transition-colors cursor-pointer group"
+            >
+              <Avatar
+                src={c.avatar_url || `https://i.pravatar.cc/150?u=${c.id}`}
+                size="sm"
+                className="ring-2 ring-sun-primary/20"
+              />
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-bold text-sun-text-main truncate group-hover:text-sun-primary transition-colors">
+                  {c.full_name || c.username || 'Unknown User'}
+                </h4>
+                <p className="text-[10px] text-sun-text-muted truncate mt-0.5">
+                  @{c.username || 'unknown'}
+                </p>
+                {c.bio && (
+                  <p className="text-[9px] text-sun-text-muted truncate mt-1">
+                    {c.bio}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1.5 bg-sun-primary text-white hover:bg-sun-primary/90 rounded-md transition-colors shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenProfile(c.username || c.id);
+                }}
+              >
+                View
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </section>
   );
 };
 
-// 7. TRENDING DISCUSSIONS
 export const TrendingDiscussions = () => {
   const topics = [
     { title: '#StorytellingSecrets', counts: '1.4k posts', trend: '+24% today' },

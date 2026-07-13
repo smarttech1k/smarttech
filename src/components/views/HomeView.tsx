@@ -17,6 +17,7 @@ import {
   likePost,
   unlikePost,
   addComment,
+  fetchCreatorSpotlight,
 } from '../../lib/feed';
 
 export const HomeView = () => {
@@ -25,22 +26,35 @@ export const HomeView = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [creators, setCreators] = useState<
+    Array<{
+      id: string;
+      username: string | null;
+      full_name: string | null;
+      avatar_url: string | null;
+      bio?: string | null;
+    }>
+  >([]);
 
   const loadFeed = async () => {
     try {
       setLoading(true);
       setErrorMessage('');
 
-      const { posts, currentUserId } = await fetchFeed();
-      setCurrentUserId(currentUserId);
+     const { posts, currentUserId } = await fetchFeed();
+setCurrentUserId(currentUserId);
+
+const spotlight = await fetchCreatorSpotlight(3);
+setCreators(spotlight);
 
       const mappedPosts: PostProps[] = posts.map((post: FeedPost) => ({
         id: post.id,
         type: 'Idea' as PostType,
         author: {
+          id: post.profiles?.id || post.user_id,
           name: post.profiles?.full_name || post.profiles?.username || 'Unknown User',
-          handle: post.profiles?.username || 'unknown',
-          avatar: post.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${post.id}`,
+          handle: post.profiles?.username || '',
+          avatar: post.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${post.user_id}`,
           role: 'Community Member',
           isExpert: false,
         },
@@ -95,6 +109,11 @@ export const HomeView = () => {
     await loadFeed();
   };
 
+  const handleOpenProfile = (profileIdOrUsername: string) => {
+  if (!profileIdOrUsername) return;
+  navigate(`/profile/${profileIdOrUsername}`);
+};
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pb-24 max-w-[1400px] mx-auto">
       <div className="lg:col-span-8 space-y-10">
@@ -111,9 +130,7 @@ export const HomeView = () => {
           onProjectClick={handleProjectNavigation}
         />
 
-        <LearningRecommendations
-          onCourseClick={() => handleLearnNavigation()}
-        />
+        <LearningRecommendations onCourseClick={() => handleLearnNavigation()} />
 
         <div className="space-y-6">
           <div className="flex items-center justify-between px-1">
@@ -170,6 +187,7 @@ export const HomeView = () => {
                 likedByMe={post.likedByMe}
                 onLikeToggle={handleLikeToggle}
                 onCommentSubmit={handleCommentSubmit}
+                onOpenProfile={handleOpenProfile}
               />
             ))}
           </div>
@@ -186,7 +204,10 @@ export const HomeView = () => {
       </div>
 
       <div className="hidden lg:block lg:col-span-4 space-y-8 sticky top-24">
-        <CreatorSpotlight />
+        <CreatorSpotlight
+  creators={creators}
+  onOpenProfile={handleOpenProfile}
+/>
         <TrendingDiscussions />
       </div>
     </div>
