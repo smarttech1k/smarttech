@@ -7,13 +7,13 @@ import {
   TrendingUp,
   Share2,
   CheckCircle,
-  Zap,
   BookOpen,
   Compass,
   Award,
   Terminal,
   Flame,
   ThumbsUp,
+  Star,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
@@ -30,14 +30,14 @@ export const HeroSection = ({
     <motion.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden bg-gradient-to-br from-sun-primary via-sun-secondary to-[#4C1D95] p-8 sm:p-12 rounded-3xl text-white shadow-xl shadow-sun-primary/15 border border-sun-primary/10"
+      className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-gradient-to-br from-sun-primary via-sun-secondary to-[#4C1D95] p-6 text-white shadow-lg shadow-sun-primary/15 sm:p-8"
     >
-      <div className="relative z-10 space-y-6 max-w-2xl">
-        <Badge className="bg-white/20 text-white backdrop-blur-md border-transparent hover:bg-white/35 py-1.5 px-3 rounded-lg text-xs leading-none font-bold">
+      <div className="relative z-10 max-w-2xl space-y-4">
+        <Badge className="border-white/15 bg-white/15 text-white">
           Discover. Share. Grow.
         </Badge>
 
-        <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight text-white uppercase sm:normal-case">
+        <h1 className="font-display text-3xl font-bold leading-[1.08] tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
           Discover <span className="font-sans font-normal italic text-sun-accent">people</span>, ideas, and{' '}
           <span className="underline decoration-sun-accent/40 decoration-4 underline-offset-4">
             skills
@@ -50,18 +50,18 @@ export const HeroSection = ({
           grow. Explore exciting hobbies, learn new skills naturally, and have fun together.
         </p>
 
-        <div className="flex flex-wrap gap-4 pt-2">
+        <div className="flex flex-wrap gap-3 pt-1">
           <Button
             variant="ghost"
             onClick={onExplore}
-            className="bg-white text-sun-primary hover:bg-white/90 px-6 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg"
+            className="border-white bg-white text-sun-primary hover:border-white/90 hover:bg-white/90"
           >
-            <Compass size={16} className="mr-2" />
+            <Compass size={16} />
             Start Exploring
           </Button>
           <button
             onClick={onLearn}
-            className="px-6 py-3 bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl border border-white/20 transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white"
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15"
           >
             <BookOpen size={16} />
             Find Creators
@@ -75,12 +75,12 @@ export const HeroSection = ({
 export const PromptBar = ({ onFocus }: { onFocus?: () => void }) => {
   return (
     <div className="relative w-full">
-      <div className="bg-sun-surface border border-sun-border p-4 sm:p-5 rounded-3xl shadow-sm hover:shadow-premium transition-all duration-300">
-        <div className="flex items-center gap-4">
+      <div className="rounded-2xl border border-sun-border bg-sun-surface p-3 shadow-sm sm:p-4">
+        <div className="flex items-center gap-3">
           <Avatar src="https://i.pravatar.cc/150?u=me" size="sm" className="ring-2 ring-sun-primary/20" />
           <div
             onClick={onFocus}
-            className="flex-1 bg-sun-bg border border-sun-border/40 px-5 py-3 rounded-2xl text-sun-text-muted text-sm cursor-text hover:border-sun-accent/40 transition-colors flex items-center justify-between group"
+            className="group flex min-h-11 flex-1 cursor-text items-center justify-between rounded-xl border border-sun-border bg-sun-surface-light px-4 text-sm text-sun-text-muted transition-colors hover:border-sun-primary/30"
           >
             <span className="group-hover:text-sun-text-main transition-colors">
               What are you working on or learning today?
@@ -132,22 +132,22 @@ export const QuickActionCards = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {actions.map((act, idx) => (
         <div
           key={idx}
           onClick={act.onClick}
-          className={`bg-sun-surface border border-sun-border p-6 rounded-2xl cursor-pointer hover:shadow-premium ${act.hoverColor} transition-all group flex flex-col justify-between space-y-4`}
+          className={`interactive-card group flex cursor-pointer items-center gap-3 p-4 sm:flex-col sm:items-stretch ${act.hoverColor}`}
         >
           <div className="flex items-center justify-between">
-            <div className={`p-3 rounded-xl ${act.color} ring-4 ring-black/5`}>{act.icon}</div>
+            <div className={`rounded-xl p-2.5 ${act.color}`}>{act.icon}</div>
             <ArrowRight size={16} className="text-sun-text-muted group-hover:text-sun-primary transition-all" />
           </div>
           <div>
-            <h4 className="font-bold text-sun-text-main text-base group-hover:text-sun-primary transition-colors">
+            <h4 className="text-sm font-semibold text-sun-text-main transition-colors group-hover:text-sun-primary">
               {act.title}
             </h4>
-            <p className="text-xs text-sun-text-muted mt-1 leading-relaxed">{act.desc}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-sun-text-muted">{act.desc}</p>
           </div>
         </div>
       ))}
@@ -186,10 +186,10 @@ export const LearningRecommendations = ({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h3 className="text-xl font-bold tracking-tight text-sun-text-main">
+          <h3 className="section-title">
             Creator Picks & Popular Lessons
           </h3>
           <p className="text-xs text-sun-text-muted mt-0.5">
@@ -198,26 +198,26 @@ export const LearningRecommendations = ({
         </div>
         <button
           onClick={() => onCourseClick()}
-          className="text-xs font-bold text-sun-primary uppercase hover:underline flex items-center gap-1"
+          className="flex items-center gap-1 text-xs font-semibold text-sun-primary hover:underline"
         >
           View More Lessons
           <ArrowRight size={12} />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {courses.map((course) => (
           <div
             key={course.id}
             onClick={() => onCourseClick(course.id)}
-            className={`bg-sun-surface border ${course.color} p-6 rounded-2xl hover:shadow-premium transition-all duration-300 cursor-pointer group hover:border-sun-primary/40`}
+            className={`interactive-card group cursor-pointer p-5 ${course.color}`}
           >
             <div className="flex justify-between items-start mb-4">
               <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-sun-bg ${course.accent}`}>
                 {course.category}
               </span>
-              <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500">
-                ★ {course.rating}
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-500">
+                <Star size={12} fill="currentColor" /> {course.rating}
               </div>
             </div>
 
@@ -250,9 +250,9 @@ export interface PostProps {
   id: string;
   type: PostType;
   author: {
-  id: string;
-  name: string;
-  handle: string;
+    id: string;
+    name: string;
+    handle: string;
     avatar: string;
     isExpert?: boolean;
     role: string;
@@ -380,7 +380,7 @@ export const CommunityPost: React.FC<PostProps> = ({
       initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
-      className="bg-sun-surface border border-sun-border p-6 rounded-2xl hover:shadow-premium transition-all duration-300"
+      className="rounded-2xl border border-sun-border bg-sun-surface p-5 shadow-sm transition-shadow hover:shadow-premium sm:p-6"
     >
       <div className="flex items-start justify-between mb-4">
   <button
@@ -399,7 +399,7 @@ export const CommunityPost: React.FC<PostProps> = ({
               )}
             </div>
             <p className="text-[11px] text-sun-text-muted leading-tight mt-0.5">
-              {author.role} • {time}
+              {author.role} · {time}
             </p>
           </div>
         </button>
@@ -547,12 +547,12 @@ export const CreatorSpotlight = ({
   onOpenProfile: (profileIdOrUsername: string) => void;
 }) => {
   return (
-    <section className="bg-sun-surface border border-sun-border p-6 rounded-2xl space-y-5">
+    <section className="surface-card space-y-4 p-5">
       <div className="flex items-center justify-between">
-        <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">
+        <h3 className="font-display text-sm font-semibold text-sun-text-main">
           Creator Spotlight
         </h3>
-        <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 rounded-full text-xs font-black uppercase tracking-widest px-2 py-0.5">
+        <Badge>
           Real Profiles
         </Badge>
       </div>
@@ -567,7 +567,7 @@ export const CreatorSpotlight = ({
             <div
               key={c.id}
               onClick={() => onOpenProfile(c.username || c.id)}
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-sun-bg transition-colors cursor-pointer group"
+              className="group flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-sun-surface-light"
             >
               <Avatar
                 src={c.avatar_url || `https://i.pravatar.cc/150?u=${c.id}`}
@@ -614,10 +614,10 @@ export const TrendingDiscussions = () => {
   ];
 
   return (
-    <section className="bg-sun-surface border border-sun-border p-6 rounded-2xl space-y-4">
+    <section className="surface-card space-y-4 p-5">
       <div className="flex items-center gap-2">
         <TrendingUp size={16} className="text-sun-primary" />
-        <h3 className="font-display font-bold text-sun-text-main text-sm uppercase tracking-wider">
+        <h3 className="font-display text-sm font-semibold text-sun-text-main">
           Trending Topics
         </h3>
       </div>

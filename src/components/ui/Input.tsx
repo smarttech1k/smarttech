@@ -1,35 +1,70 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useId } from 'react';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  hint?: string;
   icon?: ReactNode;
   className?: string;
-  type?: string;
-  placeholder?: string;
-  defaultValue?: string;
 }
 
-export const Input = ({ label, error, icon, className = '', ...props }: InputProps) => {
+export const Input = ({
+  label,
+  error,
+  hint,
+  icon,
+  className = '',
+  id,
+  ...props
+}: InputProps) => {
+  const generatedId = useId();
+  const inputId = id || generatedId;
+  const messageId = `${inputId}-message`;
+
   return (
-    <div className="w-full space-y-2">
+    <div className="w-full space-y-1.5">
       {label && (
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-sun-text-muted px-2 block">
+        <label
+          htmlFor={inputId}
+          className="block px-0.5 text-xs font-semibold text-sun-text-main"
+        >
           {label}
         </label>
       )}
-      <div className="relative group">
+
+      <div className="relative">
         {icon && (
-          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-sun-text-muted group-focus-within:text-sun-primary transition-all duration-300 transform group-focus-within:scale-110">
+          <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sun-text-muted">
             {icon}
           </div>
         )}
+
         <input
-          className={`w-full bg-sun-surface-light border-2 border-sun-border text-sun-text-main rounded-2xl py-4 focus:outline-none focus:ring-4 focus:ring-sun-primary/10 focus:border-sun-primary transition-all duration-300 placeholder:text-sun-text-muted/40 font-medium tracking-tight ${icon ? 'pl-14 pr-6' : 'px-6'} ${className} ${error ? 'border-red-500 ring-red-500/10' : ''}`}
+          id={inputId}
+          aria-invalid={!!error}
+          aria-describedby={error || hint ? messageId : undefined}
+          className={`min-h-11 w-full rounded-xl border bg-sun-surface px-3.5 py-2.5 text-sm font-medium text-sun-text-main shadow-sm outline-none transition-colors placeholder:text-sun-text-muted/55 focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10 disabled:cursor-not-allowed disabled:opacity-60 ${
+            icon ? 'pl-11' : ''
+          } ${
+            error
+              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10'
+              : 'border-sun-border'
+          } ${className}`}
           {...props}
         />
       </div>
-      {error && <p className="text-[10px] font-bold text-red-500 px-2 tracking-wide uppercase">{error}</p>}
+
+      {(error || hint) && (
+        <p
+          id={messageId}
+          className={`px-0.5 text-xs ${
+            error ? 'font-medium text-red-600' : 'text-sun-text-muted'
+          }`}
+        >
+          {error || hint}
+        </p>
+      )}
     </div>
   );
 };
@@ -40,16 +75,26 @@ interface BadgeProps {
   className?: string;
 }
 
-export const Badge = ({ children, variant = 'primary', className = '' }: BadgeProps) => {
+export const Badge = ({
+  children,
+  variant = 'primary',
+  className = '',
+}: BadgeProps) => {
   const variants = {
-    primary: 'bg-sun-primary/10 text-sun-primary border-sun-primary/20',
-    secondary: 'bg-sun-text-muted/10 text-sun-text-muted border-sun-text-muted/20',
-    success: 'bg-green-500/10 text-green-500 border-green-500/20',
-    danger: 'bg-red-500/10 text-red-500 border-red-500/20',
+    primary:
+      'border-sun-primary/20 bg-sun-primary/8 text-sun-primary',
+    secondary:
+      'border-sun-border bg-sun-surface-light text-sun-text-muted',
+    success:
+      'border-emerald-600/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-400',
+    danger:
+      'border-red-600/20 bg-red-500/8 text-red-700 dark:text-red-400',
   };
 
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${variants[variant]} ${className}`}>
+    <span
+      className={`inline-flex min-h-6 items-center rounded-lg border px-2.5 py-1 text-[11px] font-semibold leading-none ${variants[variant]} ${className}`}
+    >
       {children}
     </span>
   );

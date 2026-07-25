@@ -1,162 +1,66 @@
 import React from 'react';
-import { Home, Compass, Video, BookOpen, MessageSquare, Bell, Sparkles, Upload, User, LogOut, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Avatar } from '../ui/Avatar';
-import { NavTab } from '../../types';
+import { AnimatePresence, motion } from 'motion/react';
+import { BarChart3, Bell, BookOpen, Compass, Home, LogOut, MessageSquare, Sparkles, User, Video, X, type LucideIcon } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { KorusaIcon, KorusaLogo } from '../shared/Logo';
 import { useUIStore } from '../../store/uiStore';
-import { KorusaLogo, KorusaIcon } from '../shared/Logo';
 
-export const Sidebar = ({ onSignOut }: { onSignOut?: () => void }) => {
+interface SidebarProps { onSignOut?: () => void; }
+interface NavItem { icon: LucideIcon; label: string; path: string; }
+
+const navItems: NavItem[] = [
+  { icon: Home, label: 'Home', path: '/home' },
+  { icon: Compass, label: 'Explore', path: '/explore' },
+  { icon: Video, label: 'Sparks', path: '/sparks' },
+  { icon: BookOpen, label: 'Learn', path: '/learn' },
+  { icon: MessageSquare, label: 'Messages', path: '/messages' },
+  { icon: Bell, label: 'Notifications', path: '/notifications' },
+  { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+  { icon: Sparkles, label: 'AI assistant', path: '/assistant' },
+  { icon: User, label: 'Profile', path: '/profile/me' },
+];
+
+export const Sidebar: React.FC<SidebarProps> = ({ onSignOut }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
+  const { isSidebarOpen, setSidebarOpen } = useUIStore();
+  const current = location.pathname.split('/')[1] || 'home';
 
-  React.useEffect(() => {
-    if (window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
-  }, [setSidebarOpen]);
-
-  const getActiveTab = (): NavTab => {
-    const path = location.pathname.split('/')[1] || 'home';
-    return path as NavTab;
-  };
-
-  const activeTab = getActiveTab();
-
-  const handleNavClick = (path: string) => {
-    navigate(path);
-    if (window.innerWidth < 768 && isSidebarOpen) {
-      toggleSidebar();
-    }
-  };
-
-  const navItems: { icon: any, label: string, id: NavTab, path: string }[] = [
-    { icon: Home, label: 'Home', id: 'home', path: '/home' },
-    { icon: Compass, label: 'Explore', id: 'explore', path: '/explore' },
-    { icon: Video, label: 'Sparks', id: 'sparks', path: '/sparks' },
-    { icon: BookOpen, label: 'Learn', id: 'learn', path: '/learn' },
-    { icon: MessageSquare, label: 'Messages', id: 'messages', path: '/messages' },
-    { icon: Bell, label: 'Notifications', id: 'notifications', path: '/notifications' },
-    { icon: BarChart3, label: 'Analytics', id: 'analytics', path: '/analytics' },
-    { icon: Sparkles, label: 'AI Assistant', id: 'assistant', path: '/assistant' },
-    { icon: User, label: 'Profile', id: 'profile', path: '/profile/me' },
-  ];
+  React.useEffect(() => setSidebarOpen(false), [location.pathname, setSidebarOpen]);
+  const go = (path: string) => { navigate(path); setSidebarOpen(false); };
 
   return (
     <>
-      {/* Mobile Overlay */}
       <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={toggleSidebar}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-40 md:hidden"
-          />
-        )}
+        {isSidebarOpen && <motion.button type="button" aria-label="Close navigation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm lg:hidden" />}
       </AnimatePresence>
-
-      <aside className={`
-        fixed inset-y-0 left-0 z-[100] flex flex-col 
-        bg-sun-bg border-r border-sun-border h-full shrink-0 
-        transition-all duration-300 ease-in-out group/sidebar overflow-y-auto overflow-x-hidden scrollbar-hide shadow-2xl
-        ${isSidebarOpen 
-          ? 'w-72 translate-x-0 lg:w-20 lg:hover:w-72' 
-          : '-translate-x-full lg:translate-x-0 lg:w-20 lg:hover:w-72'
-        } 
-      `}>
-        {/* Logo Section */}
-        <div className="flex items-center gap-4 mb-8 px-5 pt-6 shrink-0 overflow-hidden whitespace-nowrap cursor-pointer" onClick={() => navigate('/home')}>
-          <div className="shrink-0 ml-0.5">
-            <KorusaIcon size={32} />
-          </div>
-          <span className={`font-display font-black tracking-[0.18em] text-sun-text-main text-xl transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
-            KORUSA
-          </span>
+      <aside className={`fixed inset-y-0 left-0 z-[90] flex w-[280px] flex-col border-r border-sun-border bg-sun-surface shadow-xl transition-transform duration-200 lg:w-20 lg:translate-x-0 lg:shadow-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Primary navigation">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-sun-border px-5 lg:justify-center lg:px-0">
+          <button type="button" onClick={() => go('/home')} className="rounded-lg lg:hidden" aria-label="Go to home"><KorusaLogo size={30} textClassName="text-lg" /></button>
+          <button type="button" onClick={() => go('/home')} className="hidden rounded-xl lg:block" aria-label="Go to home"><KorusaIcon size={38} /></button>
+          <button type="button" onClick={() => setSidebarOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light lg:hidden" aria-label="Close navigation"><X size={20} /></button>
         </div>
-
-        <div className="space-y-1.5 px-3">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.id;
-          return (
-            <button 
-              key={item.id}
-              onClick={() => handleNavClick(item.path)}
-              className={`w-full flex items-center gap-4 px-3.5 py-4 rounded-2xl transition-all duration-300 group relative whitespace-nowrap ${isActive ? 'bg-sun-primary/10 text-sun-primary font-bold overflow-hidden' : 'text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-text-main'}`}
-            >
-              {isActive && (
-                <motion.div 
-                  layoutId="active-nav-glow"
-                  className="absolute left-0 w-1.5 h-1/2 bg-sun-primary rounded-full shadow-[0_0_15px_rgba(255,184,0,0.8)]"
-                />
-              )}
-              
-              <div className={`shrink-0 flex items-center justify-center min-w-[24px] transition-transform duration-300 group-hover:scale-110 ${isActive ? 'scale-110' : ''}`}>
-                <item.icon size={24} className={isActive ? 'fill-current' : ''} />
-              </div>
-              <span className={`text-[14px] tracking-tight font-bold transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
-                {item.label}
-              </span>
-
-              {/* Tooltip for collapsed state - ONLY when not hovering the whole sidebar */}
-              {!isSidebarOpen && (
-                <div className="absolute left-full ml-4 px-3 py-1.5 bg-sun-surface-light text-sun-text-main border border-sun-border rounded-lg text-[10px] font-bold opacity-0 group-hover:opacity-100 lg:group-hover/sidebar:opacity-0 translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap z-[100] shadow-xl">
-                  {item.label}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-auto space-y-4 px-3 pb-8">
-        {/* Profile Section */}
-        <div 
-          onClick={() => navigate('/profile/me')}
-          className="flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-sun-text-main/5 transition-all cursor-pointer group/profile relative overflow-hidden whitespace-nowrap"
-        >
-          <div className="shrink-0 ring-2 ring-transparent group-hover/profile:ring-sun-primary/30 transition-all rounded-full p-0.5">
-            <Avatar 
-              src="https://i.pravatar.cc/150?u=me" 
-              size="sm" 
-            />
-          </div>
-          <div className={`flex flex-col transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
-            <span className="text-xs font-bold text-sun-text-main line-clamp-1">Alex Rivers</span>
-            <span className="text-[10px] text-sun-text-muted font-medium opacity-60">Cognitive Architect</span>
-          </div>
-
-          {/* Tooltip for profile */}
-          {!isSidebarOpen && (
-            <div className="absolute left-full ml-4 px-3 py-1.5 bg-sun-surface-light text-sun-text-main border border-sun-border rounded-lg text-[10px] font-bold opacity-0 group-hover/profile:opacity-100 lg:group-hover/sidebar:opacity-0 translate-x-[-10px] group-hover/profile:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap z-[100] shadow-xl">
-              Profile
-            </div>
-          )}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-hide">
+          {navItems.map((item) => {
+            const section = item.path.split('/')[1];
+            const active = current === section;
+            const Icon = item.icon;
+            return (
+              <button key={item.path} type="button" onClick={() => go(item.path)} title={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors lg:justify-center lg:px-0 ${active ? 'bg-sun-primary/10 text-sun-primary' : 'text-sun-text-muted hover:bg-sun-surface-light hover:text-sun-text-main'}`}>
+                {active && <motion.span layoutId="desktop-nav-indicator" className="absolute left-0 h-6 w-1 rounded-r-full bg-sun-primary" />}
+                <Icon size={21} strokeWidth={active ? 2.4 : 2} />
+                <span className="lg:hidden">{item.label}</span>
+                <span className="pointer-events-none absolute left-[calc(100%+12px)] z-[110] hidden rounded-lg border border-sun-border bg-sun-surface px-2.5 py-1.5 text-xs text-sun-text-main opacity-0 shadow-md transition-opacity group-hover:opacity-100 lg:block">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="border-t border-sun-border p-3">
+          <button type="button" onClick={onSignOut} title="Sign out" className="group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-sun-text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 lg:justify-center lg:px-0">
+            <LogOut size={21} /><span className="lg:hidden">Sign out</span>
+          </button>
         </div>
-
-        <button 
-          onClick={onSignOut}
-          className="w-full flex items-center gap-4 px-3.5 py-4 text-sun-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all group relative whitespace-nowrap"
-        >
-          <div className="shrink-0 flex items-center justify-center min-w-[24px]">
-            <LogOut size={24} className="group-hover:rotate-12 transition-transform duration-300" />
-          </div>
-          <span className={`text-[14px] font-bold transition-all duration-300 ${isSidebarOpen ? 'opacity-100 lg:opacity-0 lg:group-hover/sidebar:opacity-100' : 'opacity-0 lg:group-hover/sidebar:opacity-100'}`}>
-            Sign Out
-          </span>
-
-          {/* Tooltip for sign out */}
-          {!isSidebarOpen && (
-            <div className="absolute left-full ml-4 px-3 py-1.5 bg-sun-surface-light text-sun-text-main border border-sun-border rounded-lg text-[10px] font-bold opacity-0 group-hover:opacity-100 lg:group-hover/sidebar:opacity-0 translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap z-[100] shadow-xl">
-              Sign Out
-            </div>
-          )}
-        </button>
-      </div>
-    </aside>
+      </aside>
     </>
   );
 };

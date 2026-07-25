@@ -1,53 +1,56 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
   icon?: React.ReactNode;
   className?: string;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  disabled?: boolean;
-  title?: string;
 }
 
-export const Button = ({ 
-  variant = 'primary', 
-  size = 'md', 
-  children, 
-  icon, 
-  className = '', 
-  ...props 
+export const Button = ({
+  variant = 'primary',
+  size = 'md',
+  children,
+  icon,
+  className = '',
+  type = 'button',
+  ...props
 }: ButtonProps) => {
-  const baseStyles = 'inline-flex items-center justify-center font-bold tracking-wide transition-all focus:outline-none focus:ring-2 focus:ring-sun-primary active:scale-95 disabled:opacity-50 disabled:pointer-events-none rounded-xl';
-  
+  const baseStyles =
+    'inline-flex min-w-0 items-center justify-center gap-2 rounded-xl font-semibold tracking-normal transition-colors duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/20 disabled:pointer-events-none disabled:opacity-50';
+
   const variants = {
-    primary: 'bg-sun-primary text-white hover:bg-sun-primary/90 shadow-lg shadow-sun-primary/20',
-    secondary: 'bg-white dark:bg-transparent border-2 border-sun-primary text-sun-primary hover:bg-sun-primary/5 transition-all duration-300',
-    outline: 'bg-transparent border-2 border-sun-primary text-sun-primary hover:bg-sun-primary/10 transition-all',
-    ghost: 'bg-transparent text-sun-text-muted hover:text-sun-primary hover:bg-sun-primary/5 transition-all',
+    primary:
+      'border border-sun-primary bg-sun-primary text-white shadow-sm hover:bg-[#5b21b6] hover:border-[#5b21b6]',
+    secondary:
+      'border border-sun-border bg-sun-surface text-sun-text-main shadow-sm hover:border-sun-primary/35 hover:bg-sun-primary/5',
+    outline:
+      'border border-sun-primary/45 bg-transparent text-sun-primary hover:border-sun-primary hover:bg-sun-primary/7',
+    ghost:
+      'border border-transparent bg-transparent text-sun-text-muted hover:bg-sun-surface-light hover:text-sun-text-main',
+    danger:
+      'border border-red-600 bg-red-600 text-white shadow-sm hover:bg-red-700 hover:border-red-700',
   };
 
   const sizes = {
-    sm: 'px-4 py-2 text-xs font-bold uppercase tracking-wider',
-    md: 'px-6 py-3 text-sm font-bold uppercase tracking-wider',
-    lg: 'px-8 py-3.5 text-base font-bold uppercase tracking-wider',
+    sm: 'min-h-9 px-3.5 py-2 text-xs',
+    md: 'min-h-11 px-5 py-2.5 text-sm',
+    lg: 'min-h-12 px-6 py-3 text-sm sm:text-base',
   };
 
   return (
     <motion.button
-      whileHover={{ 
-        y: -1.5,
-        boxShadow: variant === 'primary' ? '0 8px 20px -5px rgba(109, 40, 217, 0.4)' : '0 4px 12px -2px rgba(109, 40, 217, 0.1)'
-      }}
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 400, damping: 12 }}
+      type={type}
+      whileTap={props.disabled ? undefined : { scale: 0.98 }}
+      transition={{ duration: 0.1 }}
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
-      {...(props as any)}
+      {...props}
     >
-      {icon && <span className="mr-2">{icon}</span>}
-      {children}
+      {icon && <span className="shrink-0">{icon}</span>}
+      <span className="min-w-0">{children}</span>
     </motion.button>
   );
 };

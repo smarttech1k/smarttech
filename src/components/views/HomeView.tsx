@@ -1,233 +1,149 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  HeroSection,
-  PromptBar,
-  QuickActionCards,
-  LearningRecommendations,
   CommunityPost,
   CreatorSpotlight,
-  TrendingDiscussions,
-  PostType,
+  HeroSection,
+  LearningRecommendations,
   PostProps,
+  PostType,
+  PromptBar,
+  QuickActionCards,
+  TrendingDiscussions,
 } from '../features/home/HomeComponents';
 import {
-  fetchFeed,
+  addComment,
   FeedPost,
+  fetchCreatorSpotlight,
+  fetchFeed,
   likePost,
   unlikePost,
-  addComment,
-  fetchCreatorSpotlight,
 } from '../../lib/feed';
+
+type Creator = {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  bio?: string | null;
+};
 
 export const HomeView = () => {
   const navigate = useNavigate();
   const [feed, setFeed] = useState<PostProps[]>([]);
+  const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [creators, setCreators] = useState<
-    Array<{
-      id: string;
-      username: string | null;
-      full_name: string | null;
-      avatar_url: string | null;
-      bio?: string | null;
-    }>
-  >([]);
 
   const loadFeed = async () => {
     try {
       setLoading(true);
       setErrorMessage('');
-
-     const { posts, currentUserId } = await fetchFeed();
-setCurrentUserId(currentUserId);
-
-const spotlight = await fetchCreatorSpotlight(3);
-setCreators(spotlight);
-
-      const mappedPosts: PostProps[] = posts.map((post: FeedPost) => ({
-        id: post.id,
-        type: 'Idea' as PostType,
-        author: {
-          id: post.profiles?.id || post.user_id,
-          name: post.profiles?.full_name || post.profiles?.username || 'Unknown User',
-          handle: post.profiles?.username || '',
-          avatar: post.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${post.user_id}`,
-          role: 'Community Member',
-          isExpert: false,
-        },
-        content: post.content,
-        image: post.media_url || undefined,
-        likes: post.likes?.length || 0,
-        comments: post.comments?.length || 0,
-        commentItems: post.comments || [],
-        time: formatRelativeTime(post.created_at),
-        likedByMe:
-          !!currentUserId && post.likes?.some((like) => like.user_id === currentUserId),
-      }));
-
-      setFeed(mappedPosts);
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load feed.');
+      const [{ posts, currentUserId: userId }, spotlight] = await Promise.all([
+        fetchFeed(),
+        fetchCreatorSpotlight(3),
+      ]);
+      setCurrentUserId(userId);
+      setCreators(spotlight);
+      setFeed(
+        posts.map((post: FeedPost) => ({
+          id: post.id,
+          type: 'Idea' as PostType,
+          author: {
+            id: post.profiles?.id || post.user_id,
+            name: post.profiles?.full_name || post.profiles?.username || 'Unknown user',
+            handle: post.profiles?.username || '',
+            avatar: post.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${post.user_id}`,
+            role: 'Community member',
+            isExpert: false,
+          },
+          content: post.content,
+          image: post.media_url || undefined,
+          likes: post.likes?.length || 0,
+          comments: post.comments?.length || 0,
+          commentItems: post.comments || [],
+          time: formatRelativeTime(post.created_at),
+          likedByMe: !!userId && post.likes?.some((like) => like.user_id === userId),
+        })),
+      );
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to load the feed.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadFeed();
+    void loadFeed();
   }, []);
-
-  const handleSparkNavigation = () => {
-    navigate('/sparks');
-  };
-
-  const handleLearnNavigation = () => {
-    navigate('/learn');
-  };
-
-  const handleProjectNavigation = () => {
-    navigate('/explore');
-  };
 
   const handleLikeToggle = async (postId: string, currentlyLiked: boolean) => {
     if (!currentUserId) return;
-
-    if (currentlyLiked) {
-      await unlikePost(postId, currentUserId);
-    } else {
-      await likePost(postId, currentUserId);
-    }
+    if (currentlyLiked) await unlikePost(postId, currentUserId);
+    else await likePost(postId, currentUserId);
   };
 
   const handleCommentSubmit = async (postId: string, content: string) => {
     if (!currentUserId) return;
-
     await addComment(postId, currentUserId, content);
     await loadFeed();
   };
 
-  const handleOpenProfile = (profileIdOrUsername: string) => {
-  if (!profileIdOrUsername) return;
-  navigate(`/profile/${profileIdOrUsername}`);
-};
+  const openProfile = (profileIdOrUsername: string) => {
+    if (profileIdOrUsername) navigate(`/profile/${profileIdOrUsername}`);
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pb-24 max-w-[1400px] mx-auto">
-      <div className="lg:col-span-8 space-y-10">
+    <div className="mx-auto grid max-w-[1360px] grid-cols-1 gap-7 pb-16 lg:grid-cols-12 lg:gap-8">
+      <div className="space-y-7 lg:col-span-8 xl:col-span-9">
         <PromptBar onFocus={() => navigate('/create')} />
+        <HeroSection onExplore={() => navigate('/explore')} onLearn={() => navigate('/learn')} />
+        <QuickActionCards onSparkClick={() => navigate('/sparks')} onCourseClick={() => navigate('/learn')} onProjectClick={() => navigate('/explore')} />
+        <LearningRecommendations onCourseClick={() => navigate('/learn')} />
 
-        <HeroSection
-          onExplore={() => navigate('/explore')}
-          onLearn={() => navigate('/learn')}
-        />
-
-        <QuickActionCards
-          onSparkClick={handleSparkNavigation}
-          onCourseClick={handleLearnNavigation}
-          onProjectClick={handleProjectNavigation}
-        />
-
-        <LearningRecommendations onCourseClick={() => handleLearnNavigation()} />
-
-        <div className="space-y-6">
-          <div className="flex items-center justify-between px-1">
+        <section className="space-y-4" aria-labelledby="community-heading">
+          <div className="flex items-end justify-between gap-4 px-1">
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-sun-text-main">
-                Community Activity
-              </h2>
-              <p className="text-xs text-sun-text-muted mt-0.5">
-                High engaging discussions and insights
-              </p>
+              <h2 id="community-heading" className="section-title">Community activity</h2>
+              <p className="section-description mt-1">Fresh ideas and conversations from your network.</p>
             </div>
-
-            <div className="flex bg-sun-surface p-1 rounded-xl border border-sun-border">
-              <button className="px-4 py-1.5 bg-sun-primary text-white font-bold text-xxs lowercase first-letter:uppercase rounded-lg tracking-wider transition-all">
-                Trending
-              </button>
-              <button className="px-4 py-1.5 text-sun-text-muted font-bold text-xxs lowercase first-letter:uppercase rounded-lg tracking-wider hover:text-sun-primary transition-colors">
-                Latest
-              </button>
+            <div className="flex rounded-xl border border-sun-border bg-sun-surface p-1 shadow-sm">
+              <button type="button" className="rounded-lg bg-sun-primary px-3 py-1.5 text-xs font-semibold text-white">Trending</button>
+              <button type="button" className="rounded-lg px-3 py-1.5 text-xs font-semibold text-sun-text-muted transition-colors hover:text-sun-text-main">Latest</button>
             </div>
           </div>
 
-          {loading && (
-            <div className="rounded-2xl border border-sun-border bg-sun-surface p-6 text-sm text-sun-text-muted">
-              Loading feed...
-            </div>
-          )}
+          {loading && <div className="surface-card p-5 text-sm text-sun-text-muted">Loading your feed…</div>}
+          {errorMessage && <div className="rounded-2xl border border-red-500/25 bg-red-500/8 p-5 text-sm text-red-600">{errorMessage}</div>}
+          {!loading && !errorMessage && feed.length === 0 && <div className="surface-card p-6 text-center text-sm text-sun-text-muted">No posts yet. Start the first conversation.</div>}
 
-          {errorMessage && (
-            <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-6 text-sm text-red-400">
-              {errorMessage}
-            </div>
-          )}
-
-          {!loading && !errorMessage && feed.length === 0 && (
-            <div className="rounded-2xl border border-sun-border bg-sun-surface p-6 text-sm text-sun-text-muted">
-              No posts yet. Be the first to create one.
-            </div>
-          )}
-
-          <div className="space-y-6">
+          <div className="space-y-4">
             {feed.map((post) => (
-              <CommunityPost
-                key={post.id}
-                id={post.id}
-                type={post.type}
-                author={post.author}
-                content={post.content}
-                image={post.image}
-                likes={post.likes}
-                comments={post.comments}
-                commentItems={post.commentItems}
-                time={post.time}
-                likedByMe={post.likedByMe}
-                onLikeToggle={handleLikeToggle}
-                onCommentSubmit={handleCommentSubmit}
-                onOpenProfile={handleOpenProfile}
-              />
+              <CommunityPost key={post.id} {...post} onLikeToggle={handleLikeToggle} onCommentSubmit={handleCommentSubmit} onOpenProfile={openProfile} />
             ))}
           </div>
-        </div>
-
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={() => navigate('/create')}
-            className="px-8 py-3.5 bg-sun-surface border border-sun-border hover:border-sun-primary text-sun-text-main hover:text-sun-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm"
-          >
-            Create a Post
-          </button>
-        </div>
+        </section>
       </div>
 
-      <div className="hidden lg:block lg:col-span-4 space-y-8 sticky top-24">
-        <CreatorSpotlight
-  creators={creators}
-  onOpenProfile={handleOpenProfile}
-/>
-        <TrendingDiscussions />
-      </div>
+      <aside className="hidden space-y-5 lg:col-span-4 lg:block xl:col-span-3">
+        <div className="sticky top-5 space-y-5">
+          <CreatorSpotlight creators={creators} onOpenProfile={openProfile} />
+          <TrendingDiscussions />
+        </div>
+      </aside>
     </div>
   );
 };
 
 function formatRelativeTime(dateString: string) {
   const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-
-  const minutes = Math.floor(diffMs / (1000 * 60));
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes}m ago`;
-
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
-
   return date.toLocaleDateString();
 }
