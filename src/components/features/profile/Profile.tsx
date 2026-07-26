@@ -12,12 +12,14 @@ import {
   Lock,
   Play,
   Heart,
+  MessageCircle,
 } from 'lucide-react';
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { BlockUserModal, ReportModal } from '../../shared/Modals';
 import { BackButton } from '../../ui/BackButton';
 import { supabase } from '../../../lib/supabase';
+import { listConversations, startDirectConversation } from '../../../lib/messages';
 
 type ProfileRecord = {
   id: string;
@@ -62,12 +64,15 @@ export const ProfileView = ({
   const [followers, setFollowers] = useState<FollowListItem[]>([]);
   const [following, setFollowing] = useState<FollowListItem[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followsViewer, setFollowsViewer] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
+  const [messageLoading, setMessageLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   const isOwnProfile = id === 'me' || (!!profile && viewerId === profile.id);
+  const isFriend = isFollowing && followsViewer;
 
   const handleBack = () => {
     if (subView !== 'main') {
@@ -178,6 +183,7 @@ export const ProfileView = ({
       }
 
       if (user.id !== targetProfileId) {
+        setFollowsViewer(followingIds.includes(user.id));
         const { data: relationship, error: relationshipError } = await supabase
           .from('follows')
           .select('follower_id, following_id')
@@ -189,6 +195,7 @@ export const ProfileView = ({
         setIsFollowing(!!relationship);
       } else {
         setIsFollowing(false);
+        setFollowsViewer(false);
       }
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load profile.');
@@ -232,6 +239,38 @@ export const ProfileView = ({
       setErrorMessage(error?.message || 'Failed to update follow state.');
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const handleMessage = async () => {
+    if (!profile || messageLoading) return;
+    try {
+      setMessageLoading(true);
+      setErrorMessage('');
+
+      const existingConversation = (await listConversations()).find(
+        (conversation) => conversation.otherUserId === profile.id,
+      );
+      if (existingConversation) {
+        navigate(`/messages?conversation=${existingConversation.conversationId}`);
+        return;
+      }
+
+      if (!isFollowing) {
+        setErrorMessage('Follow to start a conversation');
+        return;
+      }
+      if (!followsViewer) {
+        setErrorMessage('You can start a conversation when this user follows you back.');
+        return;
+      }
+
+      const conversationId = await startDirectConversation(profile.id);
+      navigate(`/messages?conversation=${conversationId}`);
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Unable to open this conversation.');
+    } finally {
+      setMessageLoading(false);
     }
   };
 
@@ -369,8 +408,21 @@ export const ProfileView = ({
                           {followLoading
                             ? 'Working...'
                             : isFollowing
-                            ? 'Following'
+                            ? 'Unfollow'
+                            : followsViewer
+                            ? 'Follow back'
                             : 'Follow'}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="!rounded-xl w-10 p-0"
+                          onClick={handleMessage}
+                          disabled={messageLoading}
+                          title={isFriend ? 'Message' : 'Follow to start a conversation'}
+                        >
+                          <MessageCircle size={18} />
                         </Button>
 
                         <div className="relative group">

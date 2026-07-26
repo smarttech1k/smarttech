@@ -1,437 +1,396 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Search, 
-  ChevronLeft, 
-  Phone, 
-  Video, 
-  Info, 
-  Plus, 
-  Image as ImageIcon, 
-  Smile, 
-  Send, 
-  MoreHorizontal,
-  Circle,
-  Paperclip,
-  Mic
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCheck,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Search,
+  Send,
+  UserPlus,
+  X,
 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Avatar } from '../../ui/Avatar';
-import { Button } from '../../ui/Button';
+import {
+  ConversationSummary,
+  getCurrentUserId,
+  listConversations,
+  listMessages,
+  markConversationRead,
+  MemberProfile,
+  MessageRow,
+  removeMessageSubscription,
+  listFriends,
+  sendMessage,
+  startDirectConversation,
+  subscribeToConversation,
+  subscribeToInbox,
+} from '../../../lib/messages';
 
-// --- Types ---
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'me' | 'other';
-  timestamp: string;
-  status: 'sent' | 'delivered' | 'read';
+interface MessagesViewProps {
+  onBack?: () => void;
 }
 
-interface Chat {
-  id: string;
-  user: {
-    name: string;
-    avatar: string;
-    online: boolean;
-    lastSeen: string;
-  };
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
-}
+const avatarFallback = (id: string) => `https://i.pravatar.cc/150?u=${id}`;
 
-// --- Dummy Data ---
-
-const DUMMY_CHATS: Chat[] = [
-  {
-    id: '1',
-    user: { name: 'Sarah Smith', avatar: 'https://i.pravatar.cc/150?u=2', online: true, lastSeen: 'Active now' },
-    lastMessage: "I'm working on something cool",
-    lastMessageTime: '4:15 PM',
-    unreadCount: 2
-  },
-  {
-    id: '2',
-    user: { name: 'John Doe', avatar: 'https://i.pravatar.cc/150?u=1', online: false, lastSeen: '2h ago' },
-    lastMessage: 'Nice, tell me more',
-    lastMessageTime: 'Yesterday',
-    unreadCount: 0
-  },
-  {
-    id: '3',
-    user: { name: 'Dante Rivers', avatar: 'https://i.pravatar.cc/150?u=3', online: true, lastSeen: 'Active now' },
-    lastMessage: 'Check this out!',
-    lastMessageTime: 'Tuesday',
-    unreadCount: 0
-  }
-];
-
-const DUMMY_MESSAGES: Record<string, Message[]> = {
-  '1': [
-    { id: '1', text: 'Hey, how are you?', sender: 'other', timestamp: '4:10 PM', status: 'read' },
-    { id: '2', text: "I'm working on something cool", sender: 'other', timestamp: '4:11 PM', status: 'read' },
-    { id: '3', text: 'Nice, tell me more!', sender: 'me', timestamp: '4:15 PM', status: 'read' },
-  ],
-  '2': [
-    { id: '1', text: 'Hey John, check the update.', sender: 'me', timestamp: 'Yesterday', status: 'read' },
-    { id: '2', text: 'Nice, tell me more', sender: 'other', timestamp: 'Yesterday', status: 'read' },
-  ]
-};
-
-// --- Components ---
-
-interface ChatListItemProps {
-  chat: Chat;
-  active: boolean;
-  onClick: () => void;
-}
-
-const ChatListItem: React.FC<ChatListItemProps> = ({ chat, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all mb-1 text-left border ${
-      active 
-        ? 'bg-sun-primary/10 border-sun-primary/25 shadow-sm' 
-        : 'hover:bg-sun-text-main/[0.02] border-transparent'
-    }`}
-  >
-    <div className="relative shrink-0">
-      <Avatar src={chat.user.avatar} size="md" className="ring-1 ring-sun-border" />
-      {chat.user.online && (
-        <div className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-sun-primary rounded-full border-2 border-sun-bg shadow-[0_0_10px_rgba(109,40,217,0.5)]" />
-      )}
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center justify-between mb-1">
-        <span className={`text-[15px] tracking-tight ${chat.unreadCount > 0 ? 'font-bold text-sun-text-main' : 'font-semibold text-sun-text-muted'} truncate`}>
-          {chat.user.name}
-        </span>
-        <span className="text-[10px] font-black text-sun-text-muted opacity-40 whitespace-nowrap ml-2 uppercase tracking-widest">{chat.lastMessageTime}</span>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <p className={`text-[13px] truncate leading-tight ${chat.unreadCount > 0 ? 'text-sun-primary font-bold' : 'text-sun-text-muted opacity-60 font-medium'}`}>
-          {chat.lastMessage}
-        </p>
-        {chat.unreadCount > 0 && (
-          <div className="bg-sun-accent w-2.5 h-2.5 rounded-full shrink-0 shadow-[0_0_8px_rgba(167,139,250,0.6)]" />
-        )}
-      </div>
-    </div>
-  </button>
-);
-
-interface MessageBubbleProps {
-  msg: Message;
-  isFirst: boolean;
-  isLast: boolean;
-}
-
-const MessageBubble: React.FC<MessageBubbleProps> = ({ msg, isFirst, isLast }) => {
-  const isMe = msg.sender === 'me';
-  
-  // Refined border radius based on position in thread
-  const borderRadius = isMe 
-    ? {
-        borderTopRightRadius: isFirst ? '1.5rem' : '0.4rem',
-        borderBottomRightRadius: isLast ? '1.5rem' : '0.4rem',
-        borderTopLeftRadius: '1.5rem',
-        borderBottomLeftRadius: '1.5rem',
-      }
-    : {
-        borderTopLeftRadius: isFirst ? '1.5rem' : '0.4rem',
-        borderBottomLeftRadius: isLast ? '1.5rem' : '0.4rem',
-        borderTopRightRadius: '1.5rem',
-        borderBottomRightRadius: '1.5rem',
-      };
-
-  return (
-    <div className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-2' : 'mb-0.5'} px-2`}>
-      <div 
-        style={borderRadius}
-        className={`
-          max-w-[85%] sm:max-w-[70%] px-5 py-3 text-[14px] leading-[1.6] shadow-sm relative transition-all duration-300
-          ${isMe 
-            ? 'bg-gradient-to-r from-sun-primary to-sun-secondary text-white font-medium shadow-md shadow-sun-primary/10' 
-            : 'bg-slate-100 dark:bg-slate-850 text-sun-text-main border-none'}
-        `}
-      >
-        {!isMe && isFirst && (
-           <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-sun-primary/20 to-transparent" />
-        )}
-        <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-        {isLast && (
-          <div className={`mt-1.5 flex items-center gap-2 ${isMe ? 'justify-end opacity-40' : 'justify-start opacity-30'} text-[9px] font-black uppercase tracking-widest`}>
-            <span>{msg.timestamp}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export const MessagesView = () => {
+export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   const navigate = useNavigate();
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [messages, setMessages] = useState(DUMMY_MESSAGES);
-  const [inputValue, setInputValue] = useState('');
+  const [searchParams] = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [draft, setDraft] = useState('');
+  const [filter, setFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [profileQuery, setProfileQuery] = useState('');
+  const [profileResults, setProfileResults] = useState<MemberProfile[]>([]);
+  const [profileSearching, setProfileSearching] = useState(false);
 
-  const activeChat = DUMMY_CHATS.find(c => c.id === selectedChatId);
-  const activeMessages = selectedChatId ? messages[selectedChatId] || [] : [];
+  const loadInbox = useCallback(async () => {
+    const rows = await listConversations();
+    setConversations(rows);
+    return rows;
+  }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [selectedChatId, messages]);
-
-  const handleSendMessage = () => {
-    if (!inputValue.trim() || !selectedChatId) return;
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: 'me',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'sent'
+    let active = true;
+    const initialize = async () => {
+      try {
+        setLoading(true);
+        const userId = await getCurrentUserId();
+        const rows = await listConversations();
+        if (!active) return;
+        setCurrentUserId(userId);
+        setConversations(rows);
+      } catch (caught) {
+        if (active) setError(toErrorMessage(caught));
+      } finally {
+        if (active) setLoading(false);
+      }
     };
+    void initialize();
+    return () => { active = false; };
+  }, []);
 
-    setMessages(prev => ({
-      ...prev,
-      [selectedChatId]: [...(prev[selectedChatId] || []), newMessage]
-    }));
-    setInputValue('');
+  useEffect(() => {
+    if (!currentUserId) return;
+    const channel = subscribeToInbox(() => {
+      void loadInbox().catch((caught) => setError(toErrorMessage(caught)));
+    });
+    return () => { void removeMessageSubscription(channel); };
+  }, [currentUserId, loadInbox]);
+
+  useEffect(() => {
+    if (!selectedId || !currentUserId) {
+      setMessages([]);
+      return;
+    }
+
+    let active = true;
+    setThreadLoading(true);
+    setError('');
+    void listMessages(selectedId)
+      .then((rows) => {
+        if (active) setMessages(rows);
+      })
+      .catch((caught) => active && setError(toErrorMessage(caught)))
+      .finally(() => active && setThreadLoading(false));
+
+    void markConversationRead(selectedId, currentUserId)
+      .then(loadInbox)
+      .catch((caught) => setError(toErrorMessage(caught)));
+
+    const channel = subscribeToConversation(selectedId, (message) => {
+      setMessages((previous) =>
+        previous.some((item) => item.id === message.id) ? previous : [...previous, message],
+      );
+      if (message.sender_id !== currentUserId) {
+        void markConversationRead(selectedId, currentUserId).then(loadInbox);
+      }
+    });
+
+    return () => {
+      active = false;
+      void removeMessageSubscription(channel);
+    };
+  }, [selectedId, currentUserId, loadInbox]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, threadLoading]);
+
+  useEffect(() => {
+    const requestedConversation = searchParams.get('conversation');
+    if (
+      requestedConversation
+      && conversations.some((item) => item.conversationId === requestedConversation)
+    ) {
+      setSelectedId(requestedConversation);
+    }
+  }, [conversations, searchParams]);
+
+  useEffect(() => {
+    if (!newChatOpen) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        setProfileSearching(true);
+        setProfileResults(await listFriends(profileQuery));
+      } catch (caught) {
+        setError(toErrorMessage(caught));
+      } finally {
+        setProfileSearching(false);
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [profileQuery, newChatOpen]);
+
+  const activeConversation = conversations.find((item) => item.conversationId === selectedId);
+  const visibleConversations = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    if (!query) return conversations;
+    return conversations.filter((item) =>
+      [item.fullName, item.username, item.lastMessage]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(query)),
+    );
+  }, [conversations, filter]);
+
+  const handleSend = async () => {
+    const body = draft.trim();
+    if (!body || !selectedId || !currentUserId || sending || !activeConversation?.canSend) return;
+    try {
+      setSending(true);
+      setDraft('');
+      const saved = await sendMessage(selectedId, currentUserId, body);
+      setMessages((previous) =>
+        previous.some((item) => item.id === saved.id) ? previous : [...previous, saved],
+      );
+      await loadInbox();
+    } catch (caught) {
+      setDraft(body);
+      setError(toErrorMessage(caught));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleStartChat = async (profile: MemberProfile) => {
+    try {
+      setError('');
+      const conversationId = await startDirectConversation(profile.id);
+      await loadInbox();
+      setSelectedId(conversationId);
+      setNewChatOpen(false);
+      setProfileQuery('');
+      setProfileResults([]);
+    } catch (caught) {
+      setError(toErrorMessage(caught));
+    }
   };
 
   return (
-    <div className="flex h-full w-full bg-sun-bg text-sun-text-main overflow-hidden font-sans">
-      <div className="flex flex-1 h-full w-full bg-sun-bg relative overflow-hidden">
-        
-        {/* Sidebar - Chat List */}
-        <aside className={`
-          flex-col w-full md:w-[300px] lg:w-[360px] xl:w-[400px] border-r border-sun-border bg-sun-bg shrink-0 z-20 transition-all duration-300
-          ${selectedChatId ? 'hidden md:flex' : 'flex'}
-        `}>
-          <header className="px-5 py-5 sm:px-6 sm:py-6 border-b border-sun-border bg-sun-bg/80 backdrop-blur-xl sticky top-0 z-10 shrink-0">
-            <div className="flex items-center justify-between mb-5 sm:mb-6">
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => navigate('/')}
-                  className="p-2 -ml-2 text-sun-text-muted hover:text-sun-text-main active:bg-sun-text-main/5 rounded-xl transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <div className="flex flex-col">
-                  <h1 className="text-lg sm:text-xl font-bold tracking-tight text-sun-text-main">
-                    Korusa <span className="text-sun-primary font-normal">Messenger</span>
-                  </h1>
-                  <span className="text-[8px] font-black text-sun-text-muted uppercase tracking-[0.2em] opacity-50">Pulse Network</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-sun-text-main/5 hover:bg-sun-primary hover:text-white rounded-xl sm:rounded-2xl transition-all active:scale-95 border border-sun-border">
-                  <Plus size={18} />
-                </button>
+    <div className="relative flex h-full min-h-[560px] overflow-hidden bg-sun-bg text-sun-text-main">
+      <aside className={`h-full w-full shrink-0 border-r border-sun-border bg-sun-surface md:flex md:w-[340px] md:flex-col xl:w-[380px] ${selectedId ? 'hidden' : 'flex flex-col'}`}>
+        <header className="border-b border-sun-border p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onBack || (() => navigate('/home'))} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Back to home">
+                <ArrowLeft size={19} />
+              </button>
+              <div>
+                <h1 className="font-display text-xl font-semibold">Messages</h1>
+                <p className="text-xs text-sun-text-muted">Your Korusa conversations</p>
               </div>
             </div>
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-sun-text-muted group-focus-within:text-sun-primary transition-colors" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search Synapses..."
-                className="w-full bg-sun-text-main/[0.03] border border-sun-border rounded-xl sm:rounded-2xl py-2.5 sm:py-3 pl-11 sm:pl-12 pr-4 text-xs sm:text-sm font-medium focus:outline-none focus:border-sun-primary/30 transition-all placeholder:text-sun-text-main/20"
-              />
-            </div>
-          </header>
-
-          <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-4 scrollbar-hide space-y-1">
-            <div className="px-4 mb-3 sm:mb-4 text-[9px] font-black text-sun-text-muted uppercase tracking-[0.3em] opacity-40">Active Nodes</div>
-            {DUMMY_CHATS.map((chat) => (
-              <ChatListItem 
-                key={chat.id} 
-                chat={chat} 
-                active={selectedChatId === chat.id}
-                onClick={() => setSelectedChatId(chat.id)}
-              />
-            ))}
+            <button type="button" onClick={() => setNewChatOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-sun-primary text-white shadow-sm" aria-label="Start a conversation">
+              <Plus size={20} />
+            </button>
           </div>
-        </aside>
+          <div className="relative">
+            <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sun-text-muted" />
+            <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Search conversations" className="h-10 w-full rounded-xl border border-sun-border bg-sun-surface-light pl-10 pr-4 text-sm outline-none focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10" />
+          </div>
+        </header>
 
-        {/* Chat Window */}
-        <main className={`
-          flex-1 flex-col bg-sun-bg relative z-10
-          ${selectedChatId ? 'flex' : 'hidden md:flex items-center justify-start pt-20 sm:pt-32'}
-        `}>
-          {activeChat ? (
-            <div className="flex flex-col h-full bg-sun-bg">
-              {/* Chat Header */}
-              <header className="h-16 sm:h-20 px-4 sm:px-6 lg:px-8 border-b border-sun-border flex items-center justify-between shrink-0 bg-sun-bg/80 backdrop-blur-3xl z-30 sticky top-0">
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <button 
-                    onClick={() => setSelectedChatId(null)} 
-                    className="md:hidden p-2 -ml-2 text-sun-text-muted hover:text-sun-primary active:bg-sun-text-main/5 rounded-xl transition-colors"
-                  >
-                    <ChevronLeft size={24} />
-                  </button>
-                  <div className="relative group cursor-pointer hidden xs:block">
-                    <Avatar src={activeChat.user.avatar} size="sm" className="sm:w-10 sm:h-10 ring-2 ring-sun-border group-hover:ring-sun-primary/50 transition-all duration-500" />
-                    {activeChat.user.online && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 sm:w-3.5 h-3 sm:h-3.5 bg-sun-primary rounded-full border-2 border-sun-bg shadow-[0_0_10px_rgba(109,40,217,0.5)]" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-sm sm:text-base font-bold text-sun-text-main truncate leading-tight group-hover:text-sun-primary transition-colors cursor-pointer">{activeChat.user.name}</h2>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${activeChat.user.online ? 'bg-sun-primary animate-pulse' : 'bg-sun-text-muted/20'}`} />
-                      <span className="text-[8px] sm:text-[10px] font-black text-sun-text-muted uppercase tracking-widest opacity-60">
-                        {activeChat.user.online ? 'Connected' : `Offline (${activeChat.user.lastSeen})`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <button className="p-2 sm:p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border">
-                    <Phone className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
-                  </button>
-                  <button className="p-2 sm:p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border">
-                    <Video className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
-                  </button>
-                  <button className="hidden sm:flex p-3 text-sun-text-muted hover:bg-sun-text-main/5 hover:text-sun-primary rounded-xl transition-all active:scale-95 border border-transparent hover:border-sun-border">
-                    <Info size={20} />
-                  </button>
-                </div>
-              </header>
+        {error && (
+          <div className="m-3 flex gap-2 rounded-xl border border-red-500/20 bg-red-500/8 p-3 text-xs text-red-600">
+            <AlertCircle size={16} className="shrink-0" /><span>{error}</span>
+          </div>
+        )}
 
-              {/* Messages Body */}
-              <div 
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto px-4 sm:px-10 md:px-16 lg:px-20 py-8 sm:py-10 flex flex-col scrollbar-hide bg-sun-bg space-y-4"
-              >
-                <div className="flex flex-col items-center mb-10 sm:mb-14 mt-4 text-center">
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="relative mb-6"
-                  >
-                    <Avatar src={activeChat.user.avatar} size="xl" className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 ring-4 ring-sun-border" />
-                    {activeChat.user.online && (
-                      <div className="absolute -bottom-1 -right-1 w-8 sm:w-10 h-8 sm:h-10 bg-sun-bg rounded-full flex items-center justify-center border border-sun-border">
-                        <div className="w-4 sm:w-5 h-4 sm:h-5 bg-sun-primary rounded-full shadow-[0_0_15px_rgba(255,184,0,0.4)]" />
-                      </div>
-                    )}
-                  </motion.div>
-                  <h3 className="text-xl sm:text-2xl font-black text-sun-text-main tracking-tight leading-none mb-2">{activeChat.user.name}</h3>
-                  <p className="text-[9px] sm:text-[11px] text-sun-text-muted font-black uppercase tracking-[0.2em] opacity-40 max-w-[200px] sm:max-w-[240px] leading-relaxed">
-                    Personalized Interaction Node • Trusted Synapse Member
-                  </p>
-                  <button className="mt-6 px-6 py-2.5 bg-sun-text-main/5 hover:bg-sun-primary hover:text-white border border-sun-border hover:border-sun-primary/50 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-xl sm:rounded-2xl transition-all active:scale-95 shadow-sm">
-                    View Network Identity
-                  </button>
-                </div>
-
-                <div className="flex-1">
-                  <AnimatePresence mode="popLayout">
-                    {activeMessages.map((msg, index) => {
-                      const prevMsg = activeMessages[index - 1];
-                      const nextMsg = activeMessages[index + 1];
-                      const isFirst = !prevMsg || prevMsg.sender !== msg.sender;
-                      const isLast = !nextMsg || nextMsg.sender !== msg.sender;
-
-                      return (
-                        <motion.div
-                          key={msg.id}
-                          initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                          className={isFirst ? 'mt-6' : 'mt-0'}
-                        >
-                          <MessageBubble 
-                            msg={msg} 
-                            isFirst={isFirst}
-                            isLast={isLast}
-                          />
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Input Area */}
-              <div className="px-4 pb-6 sm:px-6 md:px-10 lg:px-16 xl:px-20 sm:pb-8 lg:pb-10 bg-gradient-to-t from-sun-bg via-sun-bg to-transparent sticky bottom-0 z-40">
-                <div className="flex items-end gap-2 max-w-4xl mx-auto bg-sun-surface border border-sun-border rounded-3xl sm:rounded-[2.5rem] p-1.5 focus-within:border-sun-primary/30 transition-all shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)]">
-                   <div className="flex shrink-0">
-                      <button className="p-3 text-sun-text-muted hover:text-sun-text-main hover:bg-sun-text-main/5 rounded-xl sm:rounded-2xl transition-all">
-                        <Plus size={20} strokeWidth={2.5} />
-                      </button>
-                      <button className="hidden sm:flex p-3 text-sun-text-muted hover:text-sun-text-main hover:bg-sun-text-main/5 rounded-2xl transition-all">
-                        <ImageIcon size={20} strokeWidth={2.5} />
-                      </button>
-                   </div>
-                   
-                   <textarea 
-                      rows={1}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Type a message..."
-                      className="flex-1 bg-transparent py-4 text-sm sm:text-base font-medium focus:outline-none text-sun-text-main placeholder:text-sun-text-muted/30 resize-none max-h-32 scrollbar-hide"
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-                      }}
-                   />
-                   
-                   <div className="flex items-center gap-1 pr-1 pb-1">
-                     <button className="hidden sm:flex p-3 text-sun-text-muted hover:text-sun-text-main hover:bg-sun-text-main/5 rounded-2xl transition-all">
-                        <Smile size={20} strokeWidth={2.5} />
-                     </button>
-                     <button 
-                       onClick={handleSendMessage}
-                       disabled={!inputValue.trim()}
-                       className={`
-                         w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl sm:rounded-[1.4rem] transition-all duration-500
-                         ${inputValue.trim() 
-                           ? 'bg-sun-primary text-white shadow-lg shadow-sun-primary/20 scale-100 hover:scale-105 active:scale-95' 
-                           : 'bg-sun-text-main/5 text-sun-text-muted opacity-30 cursor-not-allowed scale-90'}
-                       `}
-                     >
-                       <Send size={18} strokeWidth={2.5} className="translate-x-0.5" />
-                     </button>
-                   </div>
-                </div>
-              </div>
+        <div className="flex-1 overflow-y-auto p-2 scrollbar-hide">
+          {loading ? (
+            <div className="flex h-40 items-center justify-center text-sun-text-muted"><Loader2 className="animate-spin" /></div>
+          ) : visibleConversations.length === 0 ? (
+            <div className="mx-auto flex max-w-[250px] flex-col items-center px-4 py-14 text-center">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-sun-primary/10 text-sun-primary"><MessageCircle size={23} /></div>
+              <h2 className="text-sm font-semibold">No conversations yet</h2>
+              <p className="mt-1 text-xs leading-relaxed text-sun-text-muted">Find a Korusa member and start a private conversation.</p>
+              <button type="button" onClick={() => setNewChatOpen(true)} className="mt-4 text-xs font-semibold text-sun-primary">Start messaging</button>
             </div>
           ) : (
-            <div className="text-center p-8 xs:p-12 max-w-sm mx-auto">
-              <motion.div 
-                animate={{ 
-                  y: [0, -10, 0],
-                  rotate: [0, 5, -5, 0] 
-                }}
-                transition={{ 
-                  duration: 4, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="w-20 h-20 sm:w-24 sm:h-24 bg-sun-primary/5 border border-sun-primary/10 rounded-3xl sm:rounded-[2.5rem] flex items-center justify-center text-sun-primary mx-auto mb-10 shadow-[0_0_50px_rgba(255,184,0,0.05)]"
-              >
-                <Send className="w-9 h-9 sm:w-11 sm:h-11 translate-x-1 -translate-y-1" strokeWidth={2.5} />
-              </motion.div>
-              <h2 className="text-2xl sm:text-3xl font-black text-sun-text-main tracking-tighter uppercase italic leading-tight mb-3">chat with friends.</h2>
-            </div>
+            visibleConversations.map((conversation) => (
+              <button key={conversation.conversationId} type="button" onClick={() => setSelectedId(conversation.conversationId)} className={`mb-1 flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors ${selectedId === conversation.conversationId ? 'bg-sun-primary/10' : 'hover:bg-sun-surface-light'}`}>
+                <Avatar src={conversation.avatarUrl || avatarFallback(conversation.otherUserId)} name={conversation.fullName || conversation.username || 'Member'} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold">{conversation.fullName || conversation.username || 'Korusa member'}</span>
+                    <span className="shrink-0 text-[10px] text-sun-text-muted">{formatConversationTime(conversation.lastMessageAt)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className={`truncate text-xs ${conversation.unreadCount ? 'font-semibold text-sun-text-main' : 'text-sun-text-muted'}`}>{conversation.lastMessage || 'Start the conversation'}</p>
+                    {conversation.unreadCount > 0 && <span className="flex min-w-5 items-center justify-center rounded-full bg-sun-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{Math.min(conversation.unreadCount, 99)}</span>}
+                  </div>
+                </div>
+              </button>
+            ))
           )}
-        </main>
-      </div>
+        </div>
+      </aside>
+
+      <main className={`h-full min-w-0 flex-1 flex-col ${selectedId ? 'flex' : 'hidden md:flex'}`}>
+        {activeConversation ? (
+          <>
+            <header className="flex h-16 shrink-0 items-center justify-between border-b border-sun-border bg-sun-surface px-4 sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <button type="button" onClick={() => setSelectedId(null)} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted md:hidden" aria-label="Back to conversations"><ArrowLeft size={20} /></button>
+                <Avatar src={activeConversation.avatarUrl || avatarFallback(activeConversation.otherUserId)} name={activeConversation.fullName || activeConversation.username || 'Member'} />
+                <button type="button" onClick={() => navigate(`/profile/${activeConversation.username || activeConversation.otherUserId}`)} className="min-w-0 text-left">
+                  <h2 className="truncate text-sm font-semibold">{activeConversation.fullName || activeConversation.username || 'Korusa member'}</h2>
+                  <p className="truncate text-xs text-sun-text-muted">@{activeConversation.username || 'member'}</p>
+                </button>
+              </div>
+            </header>
+
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 scrollbar-hide">
+              {threadLoading ? (
+                <div className="flex h-full items-center justify-center text-sun-text-muted"><Loader2 className="animate-spin" /></div>
+              ) : messages.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <Avatar src={activeConversation.avatarUrl || avatarFallback(activeConversation.otherUserId)} name={activeConversation.fullName || 'Member'} size="xl" />
+                  <h3 className="mt-4 font-display text-xl font-semibold">{activeConversation.fullName || activeConversation.username}</h3>
+                  <p className="mt-1 max-w-xs text-sm text-sun-text-muted">This is the beginning of your private conversation.</p>
+                </div>
+              ) : (
+                <div className="mx-auto flex max-w-3xl flex-col gap-2">
+                  {messages.map((message, index) => {
+                    const mine = message.sender_id === currentUserId;
+                    const previous = messages[index - 1];
+                    const startsGroup = !previous || previous.sender_id !== message.sender_id || !sameDay(previous.created_at, message.created_at);
+                    const showDay = !previous || !sameDay(previous.created_at, message.created_at);
+                    return (
+                      <React.Fragment key={message.id}>
+                        {showDay && <div className="my-4 text-center text-[11px] font-medium text-sun-text-muted">{formatDay(message.created_at)}</div>}
+                        <div className={`flex ${mine ? 'justify-end' : 'justify-start'} ${startsGroup ? 'mt-2' : ''}`}>
+                          <div className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm shadow-sm sm:max-w-[68%] ${mine ? 'rounded-br-md bg-sun-primary text-white' : 'rounded-bl-md border border-sun-border bg-sun-surface text-sun-text-main'}`}>
+                            <p className="whitespace-pre-wrap break-words leading-relaxed">{message.body}</p>
+                            <div className={`mt-1 flex items-center justify-end gap-1 text-[9px] ${mine ? 'text-white/65' : 'text-sun-text-muted'}`}>
+                              {formatMessageTime(message.created_at)}
+                              {mine && <CheckCheck size={11} />}
+                            </div>
+                          </div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="shrink-0 border-t border-sun-border bg-sun-surface p-3 sm:p-4">
+              {!activeConversation.isFriend && (
+                <div className="mx-auto mb-3 max-w-3xl rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-center text-xs text-amber-700 dark:text-amber-300">
+                  {activeConversation.canSend
+                    ? 'You are no longer friends. You may send one message, then wait for a reply.'
+                    : 'Waiting for a reply before you can send another message.'}
+                </div>
+              )}
+              <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-sun-border bg-sun-surface-light p-2 focus-within:border-sun-primary focus-within:ring-4 focus-within:ring-sun-primary/10">
+                <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void handleSend(); } }} rows={1} maxLength={4000} disabled={!activeConversation.canSend} placeholder={activeConversation.canSend ? 'Write a message…' : 'Waiting for a reply…'} className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-sun-text-muted/60 disabled:cursor-not-allowed disabled:opacity-60" />
+                <button type="button" onClick={() => void handleSend()} disabled={!draft.trim() || sending || !activeConversation.canSend} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sun-primary text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40" aria-label="Send message">
+                  {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-sun-primary/10 text-sun-primary"><MessageCircle size={30} /></div>
+            <h2 className="mt-5 font-display text-2xl font-semibold">Your conversations</h2>
+            <p className="mt-2 max-w-sm text-sm text-sun-text-muted">Choose a conversation or start a new one with someone in the Korusa community.</p>
+            <button type="button" onClick={() => setNewChatOpen(true)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-sun-primary px-4 py-2.5 text-sm font-semibold text-white"><UserPlus size={17} />New conversation</button>
+          </div>
+        )}
+      </main>
+
+      {newChatOpen && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-md overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+            <header className="flex items-center justify-between border-b border-sun-border p-5">
+              <div><h2 id="new-chat-title" className="font-display text-xl font-semibold">New conversation</h2><p className="text-xs text-sun-text-muted">Choose one of your Korusa friends</p></div>
+              <button type="button" onClick={() => setNewChatOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Close"><X size={19} /></button>
+            </header>
+            <div className="p-4">
+              <div className="relative">
+                <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sun-text-muted" />
+                <input autoFocus value={profileQuery} onChange={(event) => setProfileQuery(event.target.value)} placeholder="Search your friends" className="h-11 w-full rounded-xl border border-sun-border bg-sun-surface-light pl-10 pr-4 text-sm outline-none focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10" />
+              </div>
+              <div className="mt-3 max-h-80 overflow-y-auto">
+                {profileSearching ? <div className="flex h-24 items-center justify-center"><Loader2 className="animate-spin text-sun-text-muted" /></div> : profileResults.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className="text-xs text-sun-text-muted">No matching friends found.</p>
+                    <button type="button" onClick={() => navigate('/explore')} className="mt-3 text-xs font-semibold text-sun-primary">Find people to follow</button>
+                  </div>
+                ) : profileResults.map((profile) => (
+                  <button key={profile.id} type="button" onClick={() => void handleStartChat(profile)} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-sun-surface-light">
+                    <Avatar src={profile.avatar_url || avatarFallback(profile.id)} name={profile.full_name || profile.username || 'Member'} />
+                    <div className="min-w-0"><p className="truncate text-sm font-semibold">{profile.full_name || profile.username || 'Korusa member'}</p><p className="truncate text-xs text-sun-text-muted">@{profile.username || 'member'}</p></div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };
 
+function toErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return 'Something went wrong. Please try again.';
+  if (/get_my_conversations|conversations|schema cache/i.test(error.message)) {
+    return 'Messaging is not activated yet. Run the messaging SQL migration in Supabase.';
+  }
+  return error.message;
+}
+
+function formatConversationTime(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return formatMessageTime(value);
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function formatMessageTime(value: string) {
+  return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDay(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function sameDay(first: string, second: string) {
+  return new Date(first).toDateString() === new Date(second).toDateString();
+}

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Play, TrendingUp, Sparkles, Code, Brain, Target, Briefcase } from 'lucide-react';
 import { Badge } from '../../ui/Input';
 import { BackButton } from '../../ui/BackButton';
+import { FriendSuggestions } from '../social/FriendSuggestions';
 
 const categories = [
   { id: 'all', label: 'All Sparks', icon: Sparkles },
@@ -108,6 +109,8 @@ export const ExploreView = ({ onBack }: { onBack?: () => void }) => {
           ))}
         </div>
       </header>
+
+      <FriendSuggestions />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 auto-rows-[120px] sm:auto-rows-[150px]">
         {filteredItems.map((item, idx) => (

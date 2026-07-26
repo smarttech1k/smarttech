@@ -181,7 +181,7 @@ const ReelItem: React.FC<{ reel: Reel; isActive: boolean; isMuted: boolean; togg
                     : 'bg-sun-primary text-white'
                 }`}
               >
-                {isFollowed ? 'Following' : 'Follow'}
+                {isFollowed ? 'Unfollow' : 'Follow'}
               </motion.button>
             </div>
             <p className="text-[11px] text-white/70 mt-0.5 drop-shadow-sm">Top Contributor</p>
