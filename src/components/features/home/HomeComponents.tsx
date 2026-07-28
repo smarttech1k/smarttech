@@ -18,6 +18,7 @@ import {
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
+import { useNavigate } from 'react-router-dom';
 
 export const HeroSection = ({
   onExplore,
@@ -295,6 +296,7 @@ export const CommunityPost: React.FC<PostProps> = ({
   onCommentSubmit,
   onOpenProfile,
 }) => {
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(likedByMe);
   const [likesCount, setLikesCount] = useState(likes);
   const [commentsCount, setCommentsCount] = useState(comments);
@@ -448,8 +450,10 @@ export const CommunityPost: React.FC<PostProps> = ({
           </div>
 
           <button
+            onClick={() => navigate(`/messages?shareType=post&shareId=${id}`)}
             className="text-sun-text-muted hover:text-sun-primary transition-colors p-1"
-            title="Share Insight"
+            title="Share post in a conversation"
+            aria-label="Share post in a conversation"
           >
             <Share2 size={14} />
           </button>

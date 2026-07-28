@@ -51,6 +51,8 @@ import { Avatar } from '../../ui/Avatar';
 import { RichContentCard } from './RichContentCard';
 import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 import { KorusaLogo } from '../../shared/Logo';
+import { isKorusaExperience, KorusaExperienceCard } from './KorusaExperienceCard';
+import type { KorusaToolDraft } from './KorusaToolsMenu';
 import { runMessagingAi, type MessagingAiAction } from '../../../lib/messagingAi';
 import { supabase } from '../../../lib/supabase';
 import {
@@ -80,6 +82,7 @@ interface MessagesViewProps {
 }
 
 const avatarFallback = (id: string) => `https://i.pravatar.cc/150?u=${id}`;
+const LazyKorusaToolsMenu = React.lazy(() => import('./KorusaToolsMenu').then((module) => ({ default: module.KorusaToolsMenu })));
 type InboxFilter = 'all' | 'unread' | 'groups' | 'archived' | 'favorites' | 'media' | 'pinned' | 'recent';
 
 const inboxFilters: Array<{ id: InboxFilter; label: string }> = [
@@ -100,6 +103,12 @@ type DrawerProfile = {
   avatar_url: string | null;
   cover_url: string | null;
   bio: string | null;
+};
+
+type PendingShare = {
+  id: string;
+  body: string;
+  metadata: Record<string, unknown>;
 };
 
 export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
@@ -161,6 +170,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   const [aiOutput, setAiOutput] = useState('');
   const [inboxWidth, setInboxWidth] = useState(372);
   const [drawerWidth, setDrawerWidth] = useState(340);
+  const [korusaToolsOpen, setKorusaToolsOpen] = useState(false);
+  const [sharingExperience, setSharingExperience] = useState(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(120);
+  const [pendingShare, setPendingShare] = useState<PendingShare | null>(null);
   const activeConversation = conversations.find((item) => item.conversationId === selectedId);
 
   const loadInbox = useCallback(async () => {
@@ -205,6 +218,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
     }
 
     let active = true;
+    setVisibleMessageCount(120);
     setThreadLoading(true);
     setError('');
     void listMessages(selectedId)
@@ -313,6 +327,33 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   }, [conversations, searchParams]);
 
   useEffect(() => {
+    const shareType = searchParams.get('shareType');
+    const shareId = searchParams.get('shareId');
+    if (shareType !== 'post' || !shareId) return;
+    let active = true;
+    void supabase.from('posts').select('id, content, media_url, user_id').eq('id', shareId).single().then(({ data, error: shareError }) => {
+      if (!active) return;
+      if (shareError) {
+        setError(shareError.message);
+        return;
+      }
+      setPendingShare({
+        id: data.id,
+        body: data.content?.slice(0, 120) || 'Shared a Korusa post',
+        metadata: {
+          title: data.content?.slice(0, 90) || 'Korusa post',
+          description: data.content || null,
+          image_url: data.media_url || null,
+          post_id: data.id,
+          author_id: data.user_id,
+          url: `/profile/${data.user_id}`,
+        },
+      });
+    });
+    return () => { active = false; };
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!newChatOpen) return;
     const timer = window.setTimeout(async () => {
       try {
@@ -327,10 +368,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
     return () => window.clearTimeout(timer);
   }, [profileQuery, newChatOpen]);
 
-  const displayedMessages = useMemo(() => {
+  const filteredMessages = useMemo(() => {
     const query = chatQuery.trim().toLowerCase();
     return query ? messages.filter((message) => message.body.toLowerCase().includes(query)) : messages;
   }, [messages, chatQuery]);
+  const displayedMessages = useMemo(
+    () => filteredMessages.slice(Math.max(0, filteredMessages.length - visibleMessageCount)),
+    [filteredMessages, visibleMessageCount],
+  );
   const sharedContent = useMemo(() => ({
     media: messages.filter((message) => ['image', 'gif', 'sticker', 'video'].includes(message.message_type) && message.media_url),
     files: messages.filter((message) => message.message_type === 'file' && message.media_url),
@@ -339,6 +384,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
     pinned: messages.filter((message) => !!message.pinned_at),
     posts: messages.filter((message) => message.message_type === 'post'),
     courses: messages.filter((message) => message.message_type === 'course'),
+    experiences: messages.filter((message) => isKorusaExperience(message.message_type)),
   }), [messages]);
   const visibleConversations = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -434,6 +480,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
     window.setTimeout(() => setHighlightedMessageId((value) => value === messageId ? null : value), 1600);
   };
 
+  const handleThreadScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    if (element.scrollTop > 80 || displayedMessages.length >= filteredMessages.length) return;
+    const previousHeight = element.scrollHeight;
+    setVisibleMessageCount((count) => Math.min(filteredMessages.length, count + 100));
+    window.requestAnimationFrame(() => {
+      element.scrollTop = element.scrollHeight - previousHeight;
+    });
+  };
+
   const openAttachmentPicker = (accept: string, useCamera = false) => {
     setAttachmentAccept(accept);
     setCameraMode(useCamera);
@@ -503,6 +559,37 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
       setError(toErrorMessage(caught));
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const shareKorusaExperience = async (experience: KorusaToolDraft) => {
+    if (!selectedId || !currentUserId || !activeConversation?.canSend) return;
+    try {
+      setSharingExperience(true);
+      await sendMessage(selectedId, currentUserId, experience.body, { messageType: experience.type, metadata: experience.metadata, replyToId: replyingTo?.id });
+      setReplyingTo(null);
+      await refreshThread();
+      await loadInbox();
+    } catch (caught) {
+      setError(toErrorMessage(caught));
+    } finally {
+      setSharingExperience(false);
+    }
+  };
+
+  const sendPendingShare = async () => {
+    if (!pendingShare || !selectedId || !currentUserId || !activeConversation?.canSend) return;
+    try {
+      setSending(true);
+      await sendMessage(selectedId, currentUserId, pendingShare.body, { messageType: 'post', metadata: pendingShare.metadata });
+      setPendingShare(null);
+      navigate(`/messages?conversation=${selectedId}`, { replace: true });
+      await refreshThread();
+      await loadInbox();
+    } catch (caught) {
+      setError(toErrorMessage(caught));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -714,9 +801,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
               )}
             </AnimatePresence>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto bg-[linear-gradient(rgba(109,40,217,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,0.018)_1px,transparent_1px)] bg-[size:28px_28px] px-4 py-6 sm:px-8 scrollbar-hide">
+            <div ref={scrollRef} onScroll={handleThreadScroll} className="flex-1 overflow-y-auto bg-[linear-gradient(rgba(109,40,217,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,0.018)_1px,transparent_1px)] bg-[size:28px_28px] px-4 py-6 sm:px-8 scrollbar-hide">
               {threadLoading ? (
-                <div className="flex h-full items-center justify-center text-sun-text-muted"><Loader2 className="animate-spin" /></div>
+                <div className="mx-auto flex max-w-3xl flex-col gap-3 py-10" aria-label="Loading messages">{Array.from({ length: 7 }, (_, index) => <div key={index} className={`h-12 animate-pulse rounded-2xl bg-sun-border/30 ${index % 2 ? 'ml-auto w-2/5' : 'mr-auto w-3/5'}`} />)}</div>
               ) : messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   <Avatar src={activeConversation.avatarUrl || avatarFallback(activeConversation.otherUserId)} name={activeConversation.fullName || 'Member'} size="xl" />
@@ -767,6 +854,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                             {!message.deleted_at && message.media_url && message.message_type === 'file' && <a href={message.media_url} target="_blank" rel="noreferrer" className={`mb-2 flex items-center gap-2 rounded-xl p-2.5 ${mine ? 'bg-white/10' : 'bg-sun-surface-light'}`}><FileText size={20} /><span className="min-w-0"><span className="block truncate text-xs font-semibold">{message.media_name || message.body}</span><span className="text-[9px] opacity-65">{formatFileSize(message.media_size)}</span></span></a>}
                             {!message.deleted_at && message.message_type === 'location' && typeof message.metadata?.latitude === 'number' && typeof message.metadata?.longitude === 'number' && <a href={`https://www.google.com/maps?q=${message.metadata.latitude},${message.metadata.longitude}`} target="_blank" rel="noreferrer" className={`mb-2 block rounded-xl p-3 font-semibold ${mine ? 'bg-white/10' : 'bg-sun-primary/5 text-sun-primary'}`}>View shared location</a>}
                             {!message.deleted_at && <RichContentCard message={message} mine={mine} />}
+                            {!message.deleted_at && isKorusaExperience(message.message_type) && <KorusaExperienceCard message={message} mine={mine} />}
                             <p className={`whitespace-pre-wrap break-words leading-relaxed ${message.deleted_at ? 'italic opacity-60' : ''} ${message.media_url && message.body === message.media_name ? 'sr-only' : ''}`}>{message.body}</p>
                             <div className={`mt-1 flex items-center justify-end gap-1 text-[9px] ${mine ? 'text-white/65' : 'text-sun-text-muted'}`}>
                               {message.edited_at && <span>Edited</span>}
@@ -785,6 +873,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
             </div>
 
             <div className="shrink-0 border-t border-sun-border/80 bg-sun-surface/95 p-3 backdrop-blur-xl sm:p-4">
+              {pendingShare && <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-2xl border border-sun-primary/20 bg-sun-primary/5 p-3"><div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-wider text-sun-primary">Share this post</p><p className="truncate text-xs font-semibold">{pendingShare.body}</p></div><button type="button" onClick={() => setPendingShare(null)} className="composer-tool" aria-label="Cancel sharing"><X size={16} /></button><button type="button" onClick={() => void sendPendingShare()} disabled={sending} className="rounded-xl bg-sun-primary px-3 py-2 text-[10px] font-bold text-white">{sending ? 'Sharing...' : 'Share'}</button></div>}
               {!activeConversation.isFriend && (
                 <div className="mx-auto mb-3 max-w-3xl rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-center text-xs text-amber-700 dark:text-amber-300">
                   {activeConversation.canSend
@@ -825,6 +914,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                   <button type="button" onClick={() => { setEmojiOpen((value) => !value); setFormattingOpen(false); }} className="composer-tool" aria-label="Emoji picker"><SmilePlus size={17} /></button>
                   <button type="button" onClick={() => { setFormattingOpen((value) => !value); setEmojiOpen(false); }} className="composer-tool hidden sm:flex" aria-label="Formatting toolbar"><Bold size={16} /></button>
                   <button type="button" onClick={() => setAiOpen((value) => !value)} className="composer-tool hidden sm:flex" aria-label="Korusa AI tools"><Sparkles size={17} /></button>
+                  <button type="button" onClick={() => setKorusaToolsOpen(true)} disabled={sharingExperience} className="composer-tool" aria-label="Create a Korusa learning experience">{sharingExperience ? <Loader2 size={17} className="animate-spin" /> : <GraduationCap size={17} />}</button>
                   {recording ? (
                     <div className="flex min-h-10 flex-1 items-center gap-2 px-2"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" /><span className="text-xs font-semibold text-red-500">{formatDuration(recordingSeconds)}</span><div className="flex flex-1 items-center justify-center gap-1">{Array.from({ length: 22 }, (_, index) => <motion.span key={index} animate={{ height: [5, 8 + ((index * 9) % 18), 5] }} transition={{ repeat: Infinity, duration: 0.7, delay: index * 0.025 }} className="w-0.5 rounded-full bg-sun-primary" />)}</div></div>
                   ) : <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void handleSend(); } }} rows={1} maxLength={4000} disabled={!activeConversation.canSend} placeholder={activeConversation.canSend ? 'Write a message...' : 'Waiting for a reply...'} className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-sun-text-muted/60 disabled:cursor-not-allowed disabled:opacity-60" />}
@@ -895,7 +985,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                 <div className="mt-6">
                   <div className="mb-2 flex items-center justify-between"><h4 className="text-xs font-bold">Shared in this chat</h4><span className="text-[10px] text-sun-text-muted">{messages.length} messages</span></div>
                   <div className="grid grid-cols-3 gap-2">
-                    {[{ icon: Image, label: 'Media', count: sharedContent.media.length }, { icon: Link2, label: 'Links', count: sharedContent.links.length }, { icon: FileText, label: 'Files', count: sharedContent.files.length }, { icon: Mic, label: 'Voice', count: sharedContent.voice.length }, { icon: Pin, label: 'Pinned', count: sharedContent.pinned.length }, { icon: GraduationCap, label: 'Courses', count: sharedContent.courses.length }].map((item) => (
+                    {[{ icon: Image, label: 'Media', count: sharedContent.media.length }, { icon: Link2, label: 'Links', count: sharedContent.links.length }, { icon: FileText, label: 'Files', count: sharedContent.files.length }, { icon: Mic, label: 'Voice', count: sharedContent.voice.length }, { icon: Pin, label: 'Pinned', count: sharedContent.pinned.length }, { icon: GraduationCap, label: 'Learn', count: sharedContent.courses.length + sharedContent.experiences.length }].map((item) => (
                       <div key={item.label} className="flex min-h-20 flex-col items-center justify-center rounded-2xl border border-sun-border bg-sun-surface-light text-sun-text-muted">
                         <item.icon size={18} /><span className="mt-1.5 text-[10px] font-semibold">{item.label}</span><span className="mt-0.5 text-[9px]">{item.count}</span>
                       </div>
@@ -904,6 +994,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                   {sharedContent.media.length > 0 && <div className="mt-4 grid grid-cols-3 gap-1.5">{sharedContent.media.slice(0, 18).map((message) => message.message_type === 'video' ? <button key={message.id} type="button" onClick={() => { setDetailsOpen(false); jumpToMessage(message.id); }} className="flex aspect-square items-center justify-center rounded-xl bg-black text-white"><Video size={18} /></button> : <button key={message.id} type="button" onClick={() => { setDetailsOpen(false); jumpToMessage(message.id); }} className="aspect-square overflow-hidden rounded-xl"><img src={message.media_url || ''} alt="" className="h-full w-full object-cover" /></button>)}</div>}
                   {sharedContent.pinned.length > 0 && <div className="mt-4 space-y-1.5"><p className="text-[10px] font-bold uppercase tracking-wider text-sun-text-muted">Pinned messages</p>{sharedContent.pinned.slice(0, 8).map((message) => <button key={message.id} type="button" onClick={() => { setDetailsOpen(false); jumpToMessage(message.id); }} className="block w-full truncate rounded-xl border border-sun-border px-3 py-2 text-left text-[10px] hover:border-sun-primary/30">{message.body}</button>)}</div>}
                   {(sharedContent.posts.length > 0 || sharedContent.courses.length > 0) && <div className="mt-4 space-y-1.5"><p className="text-[10px] font-bold uppercase tracking-wider text-sun-text-muted">Shared posts and courses</p>{[...sharedContent.posts, ...sharedContent.courses].slice(0, 8).map((message) => <button key={message.id} type="button" onClick={() => { setDetailsOpen(false); jumpToMessage(message.id); }} className="block w-full truncate rounded-xl bg-sun-primary/5 px-3 py-2 text-left text-[10px] font-semibold text-sun-primary">{message.body}</button>)}</div>}
+                  {sharedContent.experiences.length > 0 && <div className="mt-4 space-y-1.5"><p className="text-[10px] font-bold uppercase tracking-wider text-sun-text-muted">Learning together</p>{sharedContent.experiences.slice(0, 8).map((message) => <button key={message.id} type="button" onClick={() => { setDetailsOpen(false); jumpToMessage(message.id); }} className="flex w-full items-center gap-2 rounded-xl border border-sun-primary/15 bg-sun-primary/5 px-3 py-2 text-left text-[10px] font-semibold text-sun-primary"><GraduationCap size={13} /><span className="truncate">{message.body}</span></button>)}</div>}
                   {!sharedContent.media.length && !sharedContent.files.length && !sharedContent.links.length && !sharedContent.voice.length && !sharedContent.pinned.length && <div className="mt-3 rounded-xl bg-sun-surface-light px-3 py-4 text-center text-[10px] leading-relaxed text-sun-text-muted">Shared content will appear here automatically.</div>}
                 </div>
 
@@ -945,6 +1036,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
           </section>
         </div>
       )}
+      {korusaToolsOpen && <React.Suspense fallback={<div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/40"><Loader2 className="animate-spin text-white" /></div>}><LazyKorusaToolsMenu onClose={() => setKorusaToolsOpen(false)} onCreate={shareKorusaExperience} /></React.Suspense>}
     </div>
   );
 };

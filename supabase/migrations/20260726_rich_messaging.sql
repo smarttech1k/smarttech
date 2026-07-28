@@ -16,7 +16,12 @@ alter table public.messages
 
 alter table public.messages drop constraint if exists messages_message_type_check;
 alter table public.messages add constraint messages_message_type_check check (
-  message_type in ('text', 'image', 'video', 'voice', 'file', 'location', 'post', 'course', 'gif', 'sticker', 'poll', 'event', 'announcement', 'system')
+  message_type in (
+    'text', 'image', 'video', 'voice', 'file', 'location', 'post', 'course',
+    'gif', 'sticker', 'poll', 'event', 'announcement', 'system',
+    'study_session', 'study_room', 'whiteboard', 'consultation', 'progress',
+    'quiz', 'mentor_booking', 'voice_room', 'tip'
+  )
 );
 alter table public.messages drop constraint if exists messages_delivery_state_check;
 alter table public.messages add constraint messages_delivery_state_check check (
