@@ -34,7 +34,15 @@ export async function fetchFeed() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
+  const { data: excludedRows, error: excludedError } = user
+    ? await supabase.rpc('get_feed_excluded_user_ids')
+    : { data: [], error: null };
+  if (excludedError && !/get_feed_excluded_user_ids/i.test(excludedError.message)) {
+    throw excludedError;
+  }
+  const excludedIds = (excludedRows ?? []).map((row: { user_id: string }) => row.user_id);
+
+  let query = supabase
     .from('posts')
     .select(`
       id,
@@ -65,6 +73,12 @@ export async function fetchFeed() {
       )
     `)
     .order('created_at', { ascending: false });
+
+  if (excludedIds.length > 0) {
+    query = query.not('user_id', 'in', '(' + excludedIds.join(',') + ')');
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;

@@ -22,6 +22,7 @@ export const Avatar = ({
   onClick,
   title,
 }: AvatarProps) => {
+  const fillsContainer = size === 'full';
   const sizes = {
     sm: 'h-8 w-8 text-[10px]',
     md: 'h-10 w-10 text-xs',
@@ -58,7 +59,7 @@ export const Avatar = ({
       type="button"
       onClick={onClick}
       title={title || name || 'Open profile'}
-      className="rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/20"
+      className={`${fillsContainer ? 'h-full w-full' : ''} rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/20`}
     >
       {image}
     </button>
@@ -70,7 +71,7 @@ export const Avatar = ({
     <motion.div
       whileHover={onClick ? { scale: 1.03 } : undefined}
       whileTap={onClick ? { scale: 0.98 } : undefined}
-      className={`relative inline-flex shrink-0 ${className}`}
+      className={`relative inline-flex shrink-0 ${fillsContainer ? 'h-full w-full' : ''} ${className}`}
     >
       {content}
 

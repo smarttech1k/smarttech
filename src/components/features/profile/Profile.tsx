@@ -1,22 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Settings,
-  Grid,
-  Bookmark,
-  MapPin,
-  Link as LinkIcon,
-  Award,
-  MoreVertical,
-  Lock,
-  Play,
-  Heart,
-  MessageCircle,
-} from 'lucide-react';
+import { ArrowRight, Ban, CalendarDays, Camera, FileText, Flag, Image as ImageIcon, Loader2, MessageCircle, MoreHorizontal, Save, Settings, Sparkles, Users, VolumeX, X } from 'lucide-react';
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
-import { BlockUserModal, ReportModal } from '../../shared/Modals';
 import { BackButton } from '../../ui/BackButton';
 import { supabase } from '../../../lib/supabase';
 import { listConversations, startDirectConversation } from '../../../lib/messages';
@@ -27,6 +14,11 @@ type ProfileRecord = {
   full_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  cover_url: string | null;
+  cover_description: string | null;
+  cover_position_x: number;
+  cover_position_y: number;
+  cover_zoom: number;
 };
 
 type PostRecord = {
@@ -43,21 +35,16 @@ type FollowListItem = {
   avatar_url: string | null;
 };
 
-export const ProfileView = ({
-  onSettingsClick,
-  onBack,
-}: {
+interface ProfileViewProps {
   onSettingsClick?: () => void;
   onBack?: () => void;
-}) => {
+}
+
+export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
-  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [subView, setSubView] = useState<'main' | 'followers' | 'following'>('main');
-
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [posts, setPosts] = useState<PostRecord[]>([]);
@@ -65,137 +52,98 @@ export const ProfileView = ({
   const [following, setFollowing] = useState<FollowListItem[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followsViewer, setFollowsViewer] = useState(false);
-
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [noticeMessage, setNoticeMessage] = useState('');
+  const [coverEditorOpen, setCoverEditorOpen] = useState(false);
+  const [coverDescription, setCoverDescription] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState('');
+  const [coverSaving, setCoverSaving] = useState(false);
+  const [coverPositionX, setCoverPositionX] = useState(50);
+  const [coverPositionY, setCoverPositionY] = useState(50);
+  const [coverZoom, setCoverZoom] = useState(1);
+  const [coverStoryOpen, setCoverStoryOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<PostRecord | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [moderationLoading, setModerationLoading] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('spam');
+  const [reportDetails, setReportDetails] = useState('');
 
   const isOwnProfile = id === 'me' || (!!profile && viewerId === profile.id);
   const isFriend = isFollowing && followsViewer;
-
-  const handleBack = () => {
-    if (subView !== 'main') {
-      setSubView('main');
-    } else if (onBack) {
-      onBack();
-    }
-  };
 
   const loadProfileData = async () => {
     try {
       setLoading(true);
       setErrorMessage('');
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
+      setNoticeMessage('');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) throw new Error('You must be signed in.');
-
+      if (!id) throw new Error('Profile identifier is missing.');
       setViewerId(user.id);
 
-      let targetProfile: ProfileRecord | null = null;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      const query = supabase.from('profiles').select(
+        'id, username, full_name, bio, avatar_url, cover_url, cover_description, cover_position_x, cover_position_y, cover_zoom',
+      );
+      const result = id === 'me'
+        ? await query.eq('id', user.id).single()
+        : isUuid
+          ? await query.eq('id', id).single()
+          : await query.eq('username', id).single();
+      if (result.error) throw result.error;
+      const target = result.data as ProfileRecord;
+      setProfile(target);
+      setCoverDescription(target.cover_description || '');
+      setCoverPositionX(Number(target.cover_position_x ?? 50));
+      setCoverPositionY(Number(target.cover_position_y ?? 50));
+      setCoverZoom(Number(target.cover_zoom ?? 1));
 
-      if (id === 'me') {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, full_name, bio, avatar_url')
-    .eq('id', user.id)
-    .single();
+      const [postResult, followerResult, followingResult] = await Promise.all([
+        supabase.from('posts').select('id, media_url, content, created_at').eq('user_id', target.id).order('created_at', { ascending: false }),
+        supabase.from('follows').select('follower_id').eq('following_id', target.id),
+        supabase.from('follows').select('following_id').eq('follower_id', target.id),
+      ]);
+      if (postResult.error) throw postResult.error;
+      if (followerResult.error) throw followerResult.error;
+      if (followingResult.error) throw followingResult.error;
+      setPosts(postResult.data || []);
 
-  if (error) throw error;
-  targetProfile = data;
-} else {
-  if (!id) {
-    throw new Error('Profile identifier is missing.');
-  }
-
-  const isUuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-
-  const profileQuery = supabase
-    .from('profiles')
-    .select('id, username, full_name, bio, avatar_url');
-
-  const { data, error } = isUuid
-    ? await profileQuery.eq('id', id).single()
-    : await profileQuery.eq('username', id).single();
-
-  if (error) throw error;
-  targetProfile = data;
-}
-
-      setProfile(targetProfile);
-
-      const targetProfileId = targetProfile.id;
-
-      const { data: userPosts, error: postsError } = await supabase
-        .from('posts')
-        .select('id, media_url, content, created_at')
-        .eq('user_id', targetProfileId)
-        .order('created_at', { ascending: false });
-
-      if (postsError) throw postsError;
-      setPosts(userPosts || []);
-
-      const { data: followerRows, error: followersError } = await supabase
-        .from('follows')
-        .select('follower_id')
-        .eq('following_id', targetProfileId);
-
-      if (followersError) throw followersError;
-
-      const { data: followingRows, error: followingError } = await supabase
-        .from('follows')
-        .select('following_id')
-        .eq('follower_id', targetProfileId);
-
-      if (followingError) throw followingError;
-
-      const followerIds = (followerRows || []).map((row) => row.follower_id);
-      const followingIds = (followingRows || []).map((row) => row.following_id);
-
-      if (followerIds.length > 0) {
-        const { data: followerProfiles, error: followerProfilesError } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, avatar_url')
-          .in('id', followerIds);
-
-        if (followerProfilesError) throw followerProfilesError;
-        setFollowers(followerProfiles || []);
+      const followerIds = (followerResult.data || []).map((row) => row.follower_id);
+      const followingIds = (followingResult.data || []).map((row) => row.following_id);
+      const [followerProfiles, followingProfiles] = await Promise.all([
+        followerIds.length
+          ? supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', followerIds)
+          : Promise.resolve({ data: [], error: null }),
+        followingIds.length
+          ? supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', followingIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (followerProfiles.error) throw followerProfiles.error;
+      if (followingProfiles.error) throw followingProfiles.error;
+      setFollowers((followerProfiles.data || []) as FollowListItem[]);
+      setFollowing((followingProfiles.data || []) as FollowListItem[]);
+      setIsFollowing(user.id !== target.id && followerIds.includes(user.id));
+      setFollowsViewer(user.id !== target.id && followingIds.includes(user.id));
+      if (user.id !== target.id) {
+        const [blockResult, muteResult] = await Promise.all([
+          supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id).eq('blocked_id', target.id).maybeSingle(),
+          supabase.from('user_mutes').select('muted_id').eq('muter_id', user.id).eq('muted_id', target.id).maybeSingle(),
+        ]);
+        if (blockResult.error) throw blockResult.error;
+        if (muteResult.error) throw muteResult.error;
+        setIsBlocked(!!blockResult.data);
+        setIsMuted(!!muteResult.data);
       } else {
-        setFollowers([]);
-      }
-
-      if (followingIds.length > 0) {
-        const { data: followingProfiles, error: followingProfilesError } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, avatar_url')
-          .in('id', followingIds);
-
-        if (followingProfilesError) throw followingProfilesError;
-        setFollowing(followingProfiles || []);
-      } else {
-        setFollowing([]);
-      }
-
-      if (user.id !== targetProfileId) {
-        setFollowsViewer(followingIds.includes(user.id));
-        const { data: relationship, error: relationshipError } = await supabase
-          .from('follows')
-          .select('follower_id, following_id')
-          .eq('follower_id', user.id)
-          .eq('following_id', targetProfileId)
-          .maybeSingle();
-
-        if (relationshipError) throw relationshipError;
-        setIsFollowing(!!relationship);
-      } else {
-        setIsFollowing(false);
-        setFollowsViewer(false);
+        setIsBlocked(false);
+        setIsMuted(false);
       }
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load profile.');
@@ -204,36 +152,30 @@ export const ProfileView = ({
     }
   };
 
-  useEffect(() => {
-    loadProfileData();
-  }, [id]);
+  useEffect(() => { void loadProfileData(); }, [id]);
+  useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
+
+  const handleBack = () => {
+    if (subView !== 'main') setSubView('main');
+    else onBack?.();
+  };
 
   const handleFollowToggle = async () => {
-    if (!viewerId || !profile || isOwnProfile) return;
-
+    if (!viewerId || !profile || isOwnProfile || followLoading) return;
     try {
       setFollowLoading(true);
       setErrorMessage('');
-
       if (isFollowing) {
-        const { error } = await supabase
-          .from('follows')
-          .delete()
-          .eq('follower_id', viewerId)
-          .eq('following_id', profile.id);
-
+        const { error } = await supabase.from('follows').delete()
+          .eq('follower_id', viewerId).eq('following_id', profile.id);
         if (error) throw error;
-        setIsFollowing(false);
       } else {
         const { error } = await supabase.from('follows').insert({
           follower_id: viewerId,
           following_id: profile.id,
         });
-
-        if (error) throw error;
-        setIsFollowing(true);
+        if (error && error.code !== '23505') throw error;
       }
-
       await loadProfileData();
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to update follow state.');
@@ -247,15 +189,17 @@ export const ProfileView = ({
     try {
       setMessageLoading(true);
       setErrorMessage('');
-
-      const existingConversation = (await listConversations()).find(
-        (conversation) => conversation.otherUserId === profile.id,
-      );
-      if (existingConversation) {
-        navigate(`/messages?conversation=${existingConversation.conversationId}`);
+      if (isBlocked) {
+        setErrorMessage('Unblock this user before opening the conversation.');
         return;
       }
-
+      const existing = (await listConversations()).find(
+        (conversation) => conversation.otherUserId === profile.id,
+      );
+      if (existing) {
+        navigate(`/messages?conversation=${existing.conversationId}`);
+        return;
+      }
       if (!isFollowing) {
         setErrorMessage('Follow to start a conversation');
         return;
@@ -264,7 +208,6 @@ export const ProfileView = ({
         setErrorMessage('You can start a conversation when this user follows you back.');
         return;
       }
-
       const conversationId = await startDirectConversation(profile.id);
       navigate(`/messages?conversation=${conversationId}`);
     } catch (error: any) {
@@ -274,347 +217,500 @@ export const ProfileView = ({
     }
   };
 
-  const renderUserList = (items: FollowListItem[], emptyLabel: string) => {
-    if (items.length === 0) {
-      return (
-        <div className="text-sm text-sun-text-muted py-8 text-center">
-          {emptyLabel}
-        </div>
-      );
-    }
+  const openCoverEditor = () => {
+    setCoverDescription(profile?.cover_description || '');
+    setCoverPositionX(Number(profile?.cover_position_x ?? 50));
+    setCoverPositionY(Number(profile?.cover_position_y ?? 50));
+    setCoverZoom(Number(profile?.cover_zoom ?? 1));
+    setCoverFile(null);
+    setCoverPreview('');
+    setCoverEditorOpen(true);
+  };
 
-    return (
-      <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
+  const handleCoverFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please choose an image file for your cover.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setErrorMessage('Cover images must be smaller than 8 MB.');
+      return;
+    }
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+  };
+
+  const handleCoverSave = async () => {
+    if (!profile || !isOwnProfile || coverSaving) return;
+    try {
+      setCoverSaving(true);
+      setErrorMessage('');
+      let coverUrl = profile.cover_url;
+      if (coverFile) {
+        const extension = coverFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const filePath = `${profile.id}/cover-${Date.now()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(
+          filePath,
+          coverFile,
+          { upsert: true, contentType: coverFile.type },
+        );
+        if (uploadError) throw uploadError;
+        coverUrl = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
+      }
+      const description = coverDescription.trim() || null;
+      const { error } = await supabase.from('profiles').update({
+        cover_url: coverUrl,
+        cover_description: description,
+        cover_position_x: coverPositionX,
+        cover_position_y: coverPositionY,
+        cover_zoom: coverZoom,
+      }).eq('id', profile.id);
+      if (error) throw error;
+      setProfile({
+        ...profile,
+        cover_url: coverUrl,
+        cover_description: description,
+        cover_position_x: coverPositionX,
+        cover_position_y: coverPositionY,
+        cover_zoom: coverZoom,
+      });
+      setCoverEditorOpen(false);
+      setCoverFile(null);
+      setCoverPreview('');
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Unable to update your cover.');
+    } finally {
+      setCoverSaving(false);
+    }
+  };
+
+  const handleBlockToggle = async () => {
+    if (!profile || moderationLoading) return;
+    try {
+      setModerationLoading(true);
+      setErrorMessage('');
+      const { error } = await supabase.rpc('set_user_block', {
+        target_user_id: profile.id,
+        should_block: !isBlocked,
+      });
+      if (error) throw error;
+      setIsBlocked(!isBlocked);
+      setNoticeMessage(isBlocked ? 'User unblocked.' : 'User blocked.');
+      setOptionsOpen(false);
+      if (!isBlocked) {
+        setIsFollowing(false);
+        setFollowsViewer(false);
+      }
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Unable to update block status.');
+    } finally {
+      setModerationLoading(false);
+    }
+  };
+
+  const handleMuteToggle = async () => {
+    if (!viewerId || !profile || moderationLoading) return;
+    try {
+      setModerationLoading(true);
+      setErrorMessage('');
+      const request = isMuted
+        ? supabase.from('user_mutes').delete().eq('muter_id', viewerId).eq('muted_id', profile.id)
+        : supabase.from('user_mutes').insert({ muter_id: viewerId, muted_id: profile.id });
+      const { error } = await request;
+      if (error && error.code !== '23505') throw error;
+      setIsMuted(!isMuted);
+      setNoticeMessage(isMuted ? 'User unmuted.' : 'User muted. Their posts will no longer appear in your feed.');
+      setOptionsOpen(false);
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Unable to update mute status.');
+    } finally {
+      setModerationLoading(false);
+    }
+  };
+
+  const handleReportSubmit = async () => {
+    if (!viewerId || !profile || moderationLoading) return;
+    try {
+      setModerationLoading(true);
+      setErrorMessage('');
+      const { error } = await supabase.from('user_reports').insert({
+        reporter_id: viewerId,
+        reported_id: profile.id,
+        reason: reportReason,
+        details: reportDetails.trim() || null,
+      });
+      if (error) throw error;
+      setReportOpen(false);
+      setReportDetails('');
+      setOptionsOpen(false);
+      setNoticeMessage('Report submitted. The Korusa safety team will review it.');
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Unable to submit this report.');
+    } finally {
+      setModerationLoading(false);
+    }
+  };
+
+  const renderUserList = (items: FollowListItem[], emptyLabel: string) =>
+    items.length === 0 ? (
+      <div className="surface-card py-12 text-center text-sm text-sun-text-muted">{emptyLabel}</div>
+    ) : (
+      <div className="grid gap-3 sm:grid-cols-2">
         {items.map((user) => (
-          <motion.div
-            key={user.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="group flex items-center justify-between p-4 rounded-3xl bg-sun-surface-light border border-sun-border/30 hover:border-sun-primary/30 transition-all hover:bg-sun-surface duration-300"
-          >
-            <div
-              className="flex items-center gap-4 cursor-pointer"
-              onClick={() => navigate(`/profile/${user.username || user.id}`)}
-            >
-              <div className="relative">
-                <Avatar
-                  size="md"
-                  src={user.avatar_url || `https://i.pravatar.cc/150?u=${user.id}`}
-                  className="ring-2 ring-sun-border group-hover:ring-sun-primary/50 transition-all"
-                />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-sun-text-main group-hover:text-sun-primary transition-colors">
-                  {user.full_name || user.username || 'Unknown User'}
-                </h4>
-                <p className="text-[9px] text-sun-text-muted font-bold lowercase opacity-60">
-                  @{user.username || 'unknown'}
-                </p>
-              </div>
+          <button key={user.id} type="button" onClick={() => navigate(`/profile/${user.username || user.id}`)} className="interactive-card flex items-center gap-3 p-4 text-left">
+            <Avatar size="lg" src={user.avatar_url || `https://i.pravatar.cc/150?u=${user.id}`} name={user.full_name || user.username || 'Member'} />
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-sm font-semibold">{user.full_name || user.username || 'Korusa member'}</h3>
+              <p className="truncate text-xs text-sun-text-muted">@{user.username || 'member'}</p>
             </div>
-          </motion.div>
+            <ArrowRight size={17} className="text-sun-text-muted" />
+          </button>
         ))}
       </div>
     );
-  };
+
+  if (loading && !profile) {
+    return <div className="flex min-h-[60vh] items-center justify-center text-sun-text-muted"><Loader2 className="animate-spin" /></div>;
+  }
 
   return (
-    <div className="space-y-12 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {(onBack || subView !== 'main') && (
-        <div className="mb-4">
-          <BackButton
-            onClick={handleBack}
-            label={subView === 'main' ? 'Back' : 'Profile'}
-            sticky={true}
-          />
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-400">
-          {errorMessage}
-        </div>
-      )}
-
+    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+      {(onBack || subView !== 'main') && <BackButton onClick={handleBack} label={subView === 'main' ? 'Back' : 'Profile'} sticky />}
+      {errorMessage && <div className="rounded-2xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-600">{errorMessage}</div>}
+      {noticeMessage && <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 p-4 text-sm text-emerald-700 dark:text-emerald-300">{noticeMessage}</div>}
       <AnimatePresence mode="wait">
-        {subView === 'main' && (
-          <motion.div
-            key="main"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-12"
-          >
-            <BlockUserModal
-              isOpen={isBlockModalOpen}
-              onClose={() => setIsBlockModalOpen(false)}
-              userName={profile?.username || 'user'}
-            />
-            <ReportModal
-              isOpen={isReportModalOpen}
-              onClose={() => setIsReportModalOpen(false)}
-              targetType="user"
-            />
-
-            <header className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-12 text-center md:text-left">
-              <div className="relative shrink-0">
-                <div className="w-24 h-24 sm:w-40 sm:h-40 rounded-[2.5rem] p-1 bg-gradient-to-tr from-sun-primary to-transparent border border-white/10 shadow-2xl">
-                  <Avatar
-                    size="full"
-                    src={profile?.avatar_url || 'https://i.pravatar.cc/400?u=me'}
-                    className="!rounded-[2.2rem]"
+        {subView === 'main' ? (
+          <motion.div key="profile-main" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-8">
+            <section className="overflow-hidden rounded-[2rem] border border-sun-border bg-sun-surface shadow-sm">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setCoverStoryOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') setCoverStoryOpen(true);
+                }}
+                className="relative aspect-[16/7] cursor-pointer overflow-hidden bg-gradient-to-br from-[#24104f] via-sun-primary to-sun-secondary sm:aspect-[820/312]"
+                aria-label="View cover photo and description"
+              >
+                {(coverPreview || profile?.cover_url) ? (
+                  <img
+                    src={coverPreview || profile?.cover_url || ''}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform duration-300"
+                    style={{
+                      objectPosition: `${profile?.cover_position_x ?? 50}% ${profile?.cover_position_y ?? 50}%`,
+                      transform: `scale(${profile?.cover_zoom ?? 1})`,
+                    }}
                   />
+                ) : (
+                  <>
+                    <div className="absolute -left-16 top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+                    <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.18)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.18)_1px,transparent_1px)] [background-size:32px_32px]" />
+                  </>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-4 sm:bottom-5 sm:left-6 sm:right-6">
+                  <p className="line-clamp-1 max-w-xl text-xs font-medium text-white/90 sm:text-sm">
+                    {profile?.cover_description || 'Tap to view cover'}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur">
+                    View cover
+                  </span>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-sun-primary text-black p-2 rounded-2xl shadow-xl shadow-sun-primary/20 border-4 border-sun-bg">
-                  <Award size={18} className="fill-current" />
-                </div>
+                {isOwnProfile && (
+                  <button type="button" onClick={(event) => { event.stopPropagation(); openCoverEditor(); }} className="absolute right-4 top-4 inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-black/35 px-3 text-xs font-semibold text-white backdrop-blur-md hover:bg-black/55">
+                    <Camera size={16} />Edit cover
+                  </button>
+                )}
               </div>
 
-              <div className="flex-1 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 justify-center md:justify-start">
-                  <h1 className="text-2xl sm:text-3xl font-display font-bold">
-                    {profile?.username || 'profile'}
-                  </h1>
-                  <div className="flex gap-2 justify-center">
+              <div className="px-5 pb-6 sm:px-8 sm:pb-8">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="-mt-12 flex min-w-0 flex-col items-center gap-4 sm:-mt-16 sm:flex-row sm:items-end">
+                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[1.65rem] border-4 border-sun-surface bg-sun-surface shadow-lg sm:h-32 sm:w-32 sm:rounded-[2rem]">
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt={profile.full_name || profile.username || 'Profile'} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-sun-primary/10 font-display text-2xl font-semibold text-sun-primary">
+                          {(profile?.full_name || profile?.username || 'K').slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 pb-1 text-center sm:text-left">
+                      <h1 className="truncate font-display text-2xl font-semibold tracking-tight sm:text-3xl">{profile?.full_name || profile?.username || 'Korusa member'}</h1>
+                      <p className="mt-1 text-sm font-medium text-sun-primary">@{profile?.username || 'member'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap justify-center gap-2 sm:justify-end">
                     {isOwnProfile ? (
                       <>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="!rounded-xl px-6"
-                          onClick={onSettingsClick}
-                        >
-                          Edit Profile
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="!rounded-xl w-10 p-0 bg-sun-text-main/5 hover:bg-sun-primary hover:text-black transition-all"
-                          onClick={onSettingsClick}
-                          title="Profile Settings"
-                        >
-                          <Settings size={18} />
-                        </Button>
+                        <Button size="sm" variant="secondary" onClick={onSettingsClick}>Edit profile</Button>
+                        <Button size="sm" variant="secondary" className="w-10 p-0" onClick={onSettingsClick} title="Profile settings"><Settings size={17} /></Button>
                       </>
                     ) : (
                       <>
-                        <Button
-                          size="sm"
-                          variant={isFollowing ? 'secondary' : 'primary'}
-                          className="!rounded-xl px-6"
-                          onClick={handleFollowToggle}
-                          disabled={followLoading}
-                        >
-                          {followLoading
-                            ? 'Working...'
-                            : isFollowing
-                            ? 'Unfollow'
-                            : followsViewer
-                            ? 'Follow back'
-                            : 'Follow'}
+                        <Button size="sm" variant={isFollowing ? 'secondary' : 'primary'} onClick={handleFollowToggle} disabled={followLoading || isBlocked}>
+                          {isBlocked ? 'Blocked' : followLoading ? 'Working…' : isFollowing ? 'Unfollow' : followsViewer ? 'Follow back' : 'Follow'}
                         </Button>
-
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="!rounded-xl w-10 p-0"
-                          onClick={handleMessage}
-                          disabled={messageLoading}
-                          title={isFriend ? 'Message' : 'Follow to start a conversation'}
-                        >
-                          <MessageCircle size={18} />
+                        <Button size="sm" variant="secondary" className="w-10 p-0" onClick={handleMessage} disabled={messageLoading} title={isBlocked ? 'Unblock to message' : isFriend ? 'Message' : 'Follow to start a conversation'}>
+                          {messageLoading ? <Loader2 size={17} className="animate-spin" /> : <MessageCircle size={17} />}
                         </Button>
-
-                        <div className="relative group">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="!rounded-xl w-10 p-0 bg-sun-text-main/5 hover:bg-sun-text-main/10 transition-all"
-                            title="More Options"
-                          >
-                            <MoreVertical size={18} />
+                        <div className="relative">
+                          <Button size="sm" variant="secondary" className="w-10 p-0" onClick={() => setOptionsOpen(!optionsOpen)} title="Profile options">
+                            <MoreHorizontal size={18} />
                           </Button>
-                          <div className="absolute right-0 top-full mt-2 w-48 bg-sun-bg border border-sun-border rounded-2xl shadow-2xl overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                            <button
-                              onClick={() => setIsReportModalOpen(true)}
-                              className="w-full text-left px-4 py-3 text-sm font-bold text-sun-text-main hover:bg-white/5 transition-colors"
-                            >
-                              Report User
-                            </button>
-                            <button
-                              onClick={() => setIsBlockModalOpen(true)}
-                              className="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-500/5 transition-colors"
-                            >
-                              Block User
-                            </button>
-                          </div>
+                          {optionsOpen && (
+                            <div className="absolute right-0 top-12 z-40 w-52 overflow-hidden rounded-2xl border border-sun-border bg-sun-surface p-1.5 shadow-xl">
+                              <button type="button" onClick={() => void handleMuteToggle()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-sun-surface-light">
+                                <VolumeX size={17} />{isMuted ? 'Unmute user' : 'Mute user'}
+                              </button>
+                              <button type="button" onClick={() => { setReportOpen(true); setOptionsOpen(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-sun-surface-light">
+                                <Flag size={17} />Report user
+                              </button>
+                              <button type="button" onClick={() => void handleBlockToggle()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-500/8">
+                                <Ban size={17} />{isBlocked ? 'Unblock user' : 'Block user'}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-center md:justify-start gap-8 sm:gap-12">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <span className="text-xl font-display font-bold">{posts.length}</span>
-                    <span className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">
-                      Posts
-                    </span>
-                  </div>
-                  <div
-                    onClick={() => setSubView('followers')}
-                    className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 cursor-pointer hover:opacity-70 transition-opacity"
-                  >
-                    <span className="text-xl font-display font-bold">{followers.length}</span>
-                    <span className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">
-                      Followers
-                    </span>
-                  </div>
-                  <div
-                    onClick={() => setSubView('following')}
-                    className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 cursor-pointer hover:opacity-70 transition-opacity"
-                  >
-                    <span className="text-xl font-display font-bold">{following.length}</span>
-                    <span className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">
-                      Following
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <h2 className="text-sm font-bold">{profile?.full_name || 'Unnamed User'}</h2>
-                    <p className="text-xs text-sun-text-muted uppercase tracking-widest font-black">
-                      Community Member
+                <div className="mt-6 grid gap-5 border-t border-sun-border pt-6 lg:grid-cols-[1fr_auto]">
+                  <div>
+                    <p className="max-w-2xl text-sm leading-relaxed text-sun-text-main">
+                      {profile?.bio || (isOwnProfile ? 'Add a bio to introduce your work and interests.' : 'This member has not added a bio yet.')}
                     </p>
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-sun-primary/8 px-3 py-1.5 text-xs font-semibold text-sun-primary"><Sparkles size={14} />Korusa member</div>
                   </div>
-                  <p className="text-sm text-sun-text-main leading-relaxed max-w-md font-medium">
-                    {profile?.bio || 'No bio yet.'}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 pt-2">
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sun-text-muted">
-                      <MapPin size={14} className="text-sun-primary" />
-                      Unspecified
-                    </div>
-                    <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sun-primary">
-                      <LinkIcon size={14} />
-                      @{profile?.username || 'profile'}
-                    </span>
+                  <div className="flex items-center justify-center divide-x divide-sun-border rounded-2xl border border-sun-border bg-sun-surface-light">
+                    <div className="px-4 py-3 text-center sm:px-5"><p className="font-display text-xl font-semibold">{posts.length}</p><p className="text-[10px] font-semibold uppercase tracking-wider text-sun-text-muted">Posts</p></div>
+                    <button type="button" onClick={() => setSubView('followers')} className="px-4 py-3 text-center hover:text-sun-primary sm:px-5"><p className="font-display text-xl font-semibold">{followers.length}</p><p className="text-[10px] font-semibold uppercase tracking-wider text-sun-text-muted">Followers</p></button>
+                    <button type="button" onClick={() => setSubView('following')} className="px-4 py-3 text-center hover:text-sun-primary sm:px-5"><p className="font-display text-xl font-semibold">{following.length}</p><p className="text-[10px] font-semibold uppercase tracking-wider text-sun-text-muted">Following</p></button>
                   </div>
                 </div>
               </div>
-            </header>
-
-            <div className="border-t border-sun-border pt-0 flex justify-center gap-8 sm:gap-16">
-              {[
-                { id: 'posts', icon: Grid, label: 'Posts' },
-                { id: 'saved', icon: Bookmark, label: 'Saved' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'posts' | 'saved')}
-                  className={`flex items-center gap-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] relative transition-colors ${
-                    activeTab === tab.id
-                      ? 'text-sun-text-main'
-                      : 'text-sun-text-muted hover:text-sun-text-main/70'
-                  }`}
-                >
-                  <tab.icon size={14} />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {activeTab === tab.id && (
-                    <motion.div
-                      layoutId="profile-tab"
-                      className="absolute top-0 left-0 right-0 h-0.5 bg-sun-text-main rounded-b-full"
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {loading ? (
-              <div className="text-sm text-sun-text-muted">Loading posts...</div>
-            ) : activeTab === 'posts' ? (
-              <div className="grid grid-cols-3 gap-1 sm:gap-8">
-                {posts.map((post, i) => (
-                  <motion.div
-                    key={post.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="relative aspect-square rounded-[1rem] sm:rounded-[2rem] overflow-hidden group border border-white/5 bg-sun-surface"
-                  >
-                    {post.media_url ? (
-                      <img
-                        src={post.media_url}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        alt="Post Media"
-                      />
-                    ) : (
-                      <div className="w-full h-full p-4 flex items-center justify-center text-center text-xs text-sun-text-main leading-relaxed">
-                        {post.content}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6">
-                      <div className="flex items-center gap-2 text-white font-bold">
-                        {post.media_url ? (
-                          <Play size={20} className="fill-current" />
-                        ) : (
-                          <Heart size={20} className="fill-current" />
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-20 text-center space-y-6">
-                <div className="w-20 h-20 bg-sun-surface border border-sun-border rounded-[2rem] flex items-center justify-center mx-auto text-sun-text-muted/20">
-                  <Lock size={40} />
+            </section>
+            <section aria-labelledby="profile-posts-heading">
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <div>
+                  <h2 id="profile-posts-heading" className="section-title">Posts</h2>
+                  <p className="section-description mt-1">Updates, photos, and moments shared with the community.</p>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold uppercase tracking-widest">Private Collection</h3>
-                  <p className="text-[10px] text-sun-text-muted font-medium max-w-[200px] mx-auto">
-                    Only you can see your saved posts.
-                  </p>
-                </div>
+                {isOwnProfile && <Button size="sm" onClick={() => navigate('/create')}>Create post</Button>}
               </div>
-            )}
-          </motion.div>
-        )}
 
-        {subView === 'followers' && (
-          <motion.div
-            key="followers"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="space-y-2">
-              <h2 className="text-2xl font-display font-bold">Followers</h2>
-              <p className="text-sm text-sun-text-muted">Users following this profile.</p>
-            </div>
-            {renderUserList(followers, 'No followers yet.')}
+              {posts.length === 0 ? (
+                <div className="surface-card flex flex-col items-center py-14 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sun-primary/10 text-sun-primary"><Sparkles size={24} /></div>
+                  <h3 className="mt-4 text-base font-semibold">No posts yet</h3>
+                  <p className="mt-1 max-w-sm text-sm text-sun-text-muted">{isOwnProfile ? 'Share your first update, photo, or moment.' : 'This member has not shared a post yet.'}</p>
+                </div>
+              ) : (
+                <div className="relative space-y-5 before:absolute before:bottom-8 before:left-[19px] before:top-8 before:w-px before:bg-gradient-to-b before:from-sun-primary before:via-sun-border before:to-transparent sm:before:left-[27px]">
+                  {posts.map((post, index) => (
+                    <motion.article key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.05, 0.3) }} className="relative grid grid-cols-[40px_1fr] gap-3 sm:grid-cols-[56px_1fr] sm:gap-5">
+                      <div className="relative z-10 mt-5 flex h-10 w-10 items-center justify-center rounded-2xl border border-sun-primary/20 bg-sun-surface text-xs font-bold text-sun-primary shadow-sm sm:h-14 sm:w-14">
+                        {String(posts.length - index).padStart(2, '0')}
+                      </div>
+                      <button type="button" onClick={() => setSelectedPost(post)} className="interactive-card w-full overflow-hidden text-left">
+                        <div className="flex items-center justify-between border-b border-sun-border px-4 py-3 sm:px-5">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-sun-text-muted"><CalendarDays size={14} className="text-sun-primary" />{formatPostDate(post.created_at)}</div>
+                          <span className="rounded-full bg-sun-primary/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-sun-primary">Post</span>
+                        </div>
+                        <div className={`grid ${post.media_url ? 'md:grid-cols-[minmax(0,1fr)_240px]' : ''}`}>
+                          <div className="p-5 sm:p-6">
+                            <p className="whitespace-pre-wrap text-sm leading-7 text-sun-text-main sm:text-[15px]">{post.content || 'A photo shared with the Korusa community.'}</p>
+                            <div className="mt-5 flex items-center gap-2 text-[11px] font-medium text-sun-text-muted">{post.media_url ? <ImageIcon size={14} /> : <FileText size={14} />}{post.media_url ? 'Photo post' : 'Text post'}</div>
+                          </div>
+                          {post.media_url && (
+                            <div className="h-52 overflow-hidden border-t border-sun-border bg-black md:h-full md:min-h-56 md:border-l md:border-t-0">
+                              <img src={post.media_url} alt="" className="h-full w-full object-contain" />
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    </motion.article>
+                  ))}
+                </div>
+              )}
+            </section>
           </motion.div>
-        )}
-
-        {subView === 'following' && (
-          <motion.div
-            key="following"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="space-y-2">
-              <h2 className="text-2xl font-display font-bold">Following</h2>
-              <p className="text-sm text-sun-text-muted">Users this profile follows.</p>
+        ) : (
+          <motion.section key={subView} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sun-primary/10 text-sun-primary"><Users size={20} /></div>
+              <div>
+                <h2 className="section-title">{subView === 'followers' ? 'Followers' : 'Following'}</h2>
+                <p className="section-description">{subView === 'followers' ? 'People connected to this member.' : 'People this member follows.'}</p>
+              </div>
             </div>
-            {renderUserList(following, 'Not following anyone yet.')}
-          </motion.div>
+            {renderUserList(subView === 'followers' ? followers : following, subView === 'followers' ? 'No followers yet.' : 'Not following anyone yet.')}
+          </motion.section>
         )}
       </AnimatePresence>
+
+      {coverStoryOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-5xl overflow-hidden rounded-3xl bg-black shadow-2xl" role="dialog" aria-modal="true" aria-label="Cover photo">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
+              <div>
+                <p className="text-sm font-semibold">{profile?.full_name || profile?.username || 'Korusa member'}</p>
+                <p className="text-xs text-white/60">Cover photo</p>
+              </div>
+              <button type="button" onClick={() => setCoverStoryOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Close cover"><X size={19} /></button>
+            </div>
+            <div className="relative aspect-[16/7] overflow-hidden sm:aspect-[820/312]">
+              {profile?.cover_url ? (
+                <img
+                  src={profile.cover_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={{
+                    objectPosition: `${profile.cover_position_x ?? 50}% ${profile.cover_position_y ?? 50}%`,
+                    transform: `scale(${profile.cover_zoom ?? 1})`,
+                  }}
+                />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-br from-[#24104f] via-sun-primary to-sun-secondary" />
+              )}
+            </div>
+            <div className="bg-sun-surface p-5 text-sun-text-main">
+              <h3 className="text-sm font-semibold">About this cover</h3>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-sun-text-muted">
+                {profile?.cover_description || 'No cover description has been added.'}
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedPost && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <section className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-label="Profile post">
+            <header className="flex items-center justify-between border-b border-sun-border p-4">
+              <div className="flex items-center gap-3">
+                <Avatar size="md" src={profile?.avatar_url || undefined} name={profile?.full_name || profile?.username || 'Member'} />
+                <div><p className="text-sm font-semibold">{profile?.full_name || profile?.username}</p><p className="text-xs text-sun-text-muted">{formatPostDate(selectedPost.created_at)}</p></div>
+              </div>
+              <button type="button" onClick={() => setSelectedPost(null)} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Close post"><X size={19} /></button>
+            </header>
+            {selectedPost.media_url && (
+              <div className="flex max-h-[65vh] min-h-64 items-center justify-center bg-black">
+                <img src={selectedPost.media_url} alt="" className="max-h-[65vh] w-full object-contain" />
+              </div>
+            )}
+            <div className="p-5 sm:p-6">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-sun-text-main">{selectedPost.content || 'Photo shared with the Korusa community.'}</p>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-md rounded-3xl border border-sun-border bg-sun-surface p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="report-user-title">
+            <div className="flex items-center justify-between">
+              <div><h2 id="report-user-title" className="font-display text-xl font-semibold">Report user</h2><p className="text-xs text-sun-text-muted">Reports are sent privately to Korusa safety.</p></div>
+              <button type="button" onClick={() => setReportOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label htmlFor="report-reason" className="mb-1.5 block text-xs font-semibold">Reason</label>
+                <select id="report-reason" value={reportReason} onChange={(event) => setReportReason(event.target.value)} className="h-11 w-full rounded-xl border border-sun-border bg-sun-surface-light px-3 text-sm outline-none focus:border-sun-primary">
+                  <option value="spam">Spam</option>
+                  <option value="harassment">Harassment</option>
+                  <option value="impersonation">Impersonation</option>
+                  <option value="unsafe">Unsafe content or behavior</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="report-details" className="mb-1.5 block text-xs font-semibold">Details (optional)</label>
+                <textarea id="report-details" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} maxLength={1000} rows={4} placeholder="Tell us what happened…" className="w-full resize-none rounded-xl border border-sun-border bg-sun-surface-light p-3 text-sm outline-none focus:border-sun-primary" />
+              </div>
+              <Button className="w-full" variant="danger" onClick={() => void handleReportSubmit()} disabled={moderationLoading}>
+                {moderationLoading ? 'Submitting…' : 'Submit report'}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {coverEditorOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <section className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="cover-editor-title">
+            <header className="flex shrink-0 items-center justify-between border-b border-sun-border p-5">
+              <div><h2 id="cover-editor-title" className="font-display text-xl font-semibold">Cover story</h2><p className="text-xs text-sun-text-muted">Add an image and a short description.</p></div>
+              <button type="button" onClick={() => setCoverEditorOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Close"><X size={18} /></button>
+            </header>
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              <button type="button" onClick={() => coverInputRef.current?.click()} className="group relative flex aspect-[820/312] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-sun-primary/35 bg-sun-primary/5">
+                {(coverPreview || profile?.cover_url) ? (
+                  <>
+                    <img
+                      src={coverPreview || profile?.cover_url || ''}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      style={{
+                        objectPosition: `${coverPositionX}% ${coverPositionY}%`,
+                        transform: `scale(${coverZoom})`,
+                      }}
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/25 text-sm font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">Choose another image</span>
+                  </>
+                ) : (
+                  <span className="flex items-center gap-2 text-sm font-semibold text-sun-primary"><Camera size={18} />Choose cover image</span>
+                )}
+              </button>
+              <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverFile} className="hidden" />
+              {(coverPreview || profile?.cover_url) && (
+                <div className="space-y-3 rounded-2xl border border-sun-border bg-sun-surface-light p-4">
+                  <p className="text-xs font-semibold">Adjust crop</p>
+                  <label className="block text-[11px] text-sun-text-muted">
+                    Horizontal position
+                    <input type="range" min="0" max="100" value={coverPositionX} onChange={(event) => setCoverPositionX(Number(event.target.value))} className="mt-1 w-full accent-sun-primary" />
+                  </label>
+                  <label className="block text-[11px] text-sun-text-muted">
+                    Vertical position
+                    <input type="range" min="0" max="100" value={coverPositionY} onChange={(event) => setCoverPositionY(Number(event.target.value))} className="mt-1 w-full accent-sun-primary" />
+                  </label>
+                  <label className="block text-[11px] text-sun-text-muted">
+                    Zoom ({coverZoom.toFixed(2)}x)
+                    <input type="range" min="1" max="3" step="0.05" value={coverZoom} onChange={(event) => setCoverZoom(Number(event.target.value))} className="mt-1 w-full accent-sun-primary" />
+                  </label>
+                </div>
+              )}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label htmlFor="cover-description" className="text-xs font-semibold">Cover description</label>
+                  <span className="text-[10px] text-sun-text-muted">{coverDescription.length}/240</span>
+                </div>
+                <textarea id="cover-description" value={coverDescription} onChange={(event) => setCoverDescription(event.target.value)} maxLength={240} rows={4} placeholder="What does this cover represent?" className="w-full resize-none rounded-xl border border-sun-border bg-sun-surface-light p-3 text-sm outline-none focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10" />
+              </div>
+            </div>
+            <footer className="shrink-0 border-t border-sun-border bg-sun-surface p-4 sm:p-5">
+              <Button className="w-full" onClick={() => void handleCoverSave()} disabled={coverSaving} icon={coverSaving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}>
+                {coverSaving ? 'Saving…' : 'Save changes'}
+              </Button>
+            </footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 };
+
+function formatPostDate(value: string) {
+  return new Date(value).toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}

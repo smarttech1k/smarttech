@@ -158,6 +158,14 @@
 }
 
 @layer components {
+  .composer-tool {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sun-text-muted transition-colors hover:bg-sun-primary/10 hover:text-sun-primary disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .profile-drawer-action {
+    @apply flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-sun-border bg-sun-surface-light px-1 py-2 text-[9px] font-semibold text-sun-text-muted transition-all hover:-translate-y-0.5 hover:border-sun-primary/30 hover:text-sun-primary;
+  }
+
   .glass-card {
     background: color-mix(in srgb, var(--sun-surface) 96%, transparent);
     border: 1px solid var(--sun-border);
@@ -350,6 +358,17 @@
   .noise-overlay::after {
     display: none;
   }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  .composer-tool {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -360,5 +379,20 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--sun-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --sun-border: #6b7280;
+  }
+
+  .dark {
+    --sun-border: #d1d5db;
   }
 }
