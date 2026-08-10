@@ -35,8 +35,6 @@ export type MessageRow = {
   reply_to_id: string | null;
   forwarded_from_id: string | null;
   pinned_at: string | null;
-  cleared_at: string | null;
-  hidden_at: string | null;
   pinned_by: string | null;
   delivery_state: 'sending' | 'sent' | 'delivered' | 'seen' | 'failed';
   deleted_at: string | null;
@@ -49,6 +47,8 @@ export type ConversationPreferences = {
   archived_at: string | null;
   favorite: boolean;
   pinned_at: string | null;
+  cleared_at: string | null;
+  hidden_at: string | null;
 };
 
 export type MemberProfile = {
@@ -77,6 +77,19 @@ export async function getCurrentUserId() {
   if (error) throw error;
   if (!data.user) throw new Error('You must be signed in to use messages.');
   return data.user.id;
+}
+
+const MESSAGE_COLUMNS =
+  'id, conversation_id, sender_id, body, created_at, edited_at, message_type, media_url, media_name, media_size, metadata, reply_to_id, forwarded_from_id, pinned_at, pinned_by, delivery_state, deleted_at, message_reactions(emoji, user_id)';
+
+// Stored media_url values are private storage paths. Realtime payloads deliver the
+// raw path, so every code path that surfaces a message has to sign it first.
+export async function signMessageMedia(message: MessageRow): Promise<MessageRow> {
+  if (!message.media_url || /^https?:\/\//.test(message.media_url)) return message;
+  const { data: signed } = await supabase.storage
+    .from('message-media')
+    .createSignedUrl(message.media_url, 3600);
+  return { ...message, media_url: signed?.signedUrl || null };
 }
 
 export async function listConversations(): Promise<ConversationSummary[]> {
@@ -124,7 +137,7 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
   if (membershipError) throw membershipError;
   let query = supabase
     .from('messages')
-    .select('id, conversation_id, sender_id, body, created_at, edited_at, message_type, media_url, media_name, media_size, metadata, reply_to_id, forwarded_from_id, pinned_at, pinned_by, delivery_state, deleted_at, message_reactions(emoji, user_id)')
+    .select(MESSAGE_COLUMNS)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(500);
@@ -133,18 +146,14 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
 
   if (error) throw error;
   const rows = (data ?? []) as MessageRow[];
-  return Promise.all(rows.map(async (message) => {
-    if (!message.media_url || /^https?:\/\//.test(message.media_url)) return message;
-    const { data: signed } = await supabase.storage.from('message-media').createSignedUrl(message.media_url, 3600);
-    return { ...message, media_url: signed?.signedUrl || null };
-  }));
+  return Promise.all(rows.map(signMessageMedia));
 }
 
 export async function sendMessage(
   conversationId: string,
   senderId: string,
   body: string,
-  options: { replyToId?: string | null; messageType?: MessageRow['message_type']; mediaUrl?: string | null; mediaName?: string | null; mediaSize?: number | null; metadata?: Record<string, unknown> } = {},
+  options: { replyToId?: string | null; forwardedFromId?: string | null; messageType?: MessageRow['message_type']; mediaUrl?: string | null; mediaName?: string | null; mediaSize?: number | null; metadata?: Record<string, unknown> } = {},
 ) {
   const content = body.trim();
   if (!content) throw new Error('Message cannot be empty.');
@@ -156,17 +165,49 @@ export async function sendMessage(
       sender_id: senderId,
       body: content,
       reply_to_id: options.replyToId || null,
+      forwarded_from_id: options.forwardedFromId || null,
       message_type: options.messageType || 'text',
       media_url: options.mediaUrl || null,
       media_name: options.mediaName || null,
       media_size: options.mediaSize || null,
       metadata: options.metadata || {},
     })
-    .select('id, conversation_id, sender_id, body, created_at, edited_at, message_type, media_url, media_name, media_size, metadata, reply_to_id, forwarded_from_id, pinned_at, pinned_by, delivery_state, deleted_at, message_reactions(emoji, user_id)')
+    .select(MESSAGE_COLUMNS)
     .single();
 
   if (error) throw error;
-  return data as MessageRow;
+  return signMessageMedia(data as MessageRow);
+}
+
+// Copies the original's payload into the target conversation, keeping a pointer back
+// to the source so the thread can render the "Forwarded" label. The in-memory copy of
+// a message carries a signed (expiring) media URL, so the raw storage path is re-read
+// from the row before it is copied forward.
+export async function forwardMessage(
+  messageId: string,
+  targetConversationId: string,
+  senderId: string,
+) {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, body, message_type, media_url, media_name, media_size, metadata, forwarded_from_id')
+    .eq('id', messageId)
+    .single();
+  if (error) throw error;
+
+  const original = data as Pick<
+    MessageRow,
+    'id' | 'body' | 'message_type' | 'media_url' | 'media_name' | 'media_size' | 'metadata' | 'forwarded_from_id'
+  >;
+
+  return sendMessage(targetConversationId, senderId, original.body, {
+    forwardedFromId: original.forwarded_from_id || original.id,
+    messageType: original.message_type,
+    mediaUrl: original.media_url,
+    mediaName: original.media_name,
+    mediaSize: original.media_size,
+    metadata: original.metadata,
+  });
 }
 
 export async function uploadMessageFile(conversationId: string, userId: string, file: File) {
@@ -232,6 +273,26 @@ export async function markConversationRead(conversationId: string, userId: strin
     .eq('user_id', userId);
 
   if (error) throw error;
+
+  // Promote the other member's delivered messages to 'seen' so their ticks update.
+  // Best-effort: a receipt failure must not break marking the thread as read.
+  const { error: seenError } = await supabase.rpc('mark_messages_seen', {
+    target_conversation_id: conversationId,
+  });
+  if (seenError) console.warn('Could not update read receipts:', seenError.message);
+}
+
+// Returns the other member's last_read_at, which drives the "seen" state on our
+// own messages. Read on thread open and refreshed by the realtime membership feed.
+export async function getOtherLastReadAt(conversationId: string, otherUserId: string) {
+  const { data, error } = await supabase
+    .from('conversation_members')
+    .select('last_read_at')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', otherUserId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.last_read_at ?? null;
 }
 
 export async function startDirectConversation(otherUserId: string) {
@@ -252,9 +313,27 @@ export async function listFriends(query = ''): Promise<MemberProfile[]> {
   return (data ?? []) as MemberProfile[];
 }
 
+// Marks every inbound message in the thread as delivered. Called when the recipient's
+// client has the thread in hand, which is what moves the sender's ticks past 'sent'.
+export async function markMessagesDelivered(conversationId: string) {
+  const { error } = await supabase.rpc('mark_messages_delivered', {
+    target_conversation_id: conversationId,
+  });
+  if (error) throw error;
+}
+
+type ConversationEvents = {
+  onInsert: (message: MessageRow) => void;
+  onUpdate: (message: MessageRow) => void;
+  onReaction: () => void;
+  onMemberRead: () => void;
+};
+
+// One channel carrying every change that can alter the open thread: new messages,
+// edits/deletes/pins/delivery transitions, reactions, and the other member's read cursor.
 export function subscribeToConversation(
   conversationId: string,
-  onMessage: (message: MessageRow) => void,
+  events: ConversationEvents,
 ): RealtimeChannel {
   return supabase
     .channel(`conversation:${conversationId}`)
@@ -266,7 +345,36 @@ export function subscribeToConversation(
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`,
       },
-      (payload) => onMessage(payload.new as MessageRow),
+      (payload) => {
+        void signMessageMedia(payload.new as MessageRow).then(events.onInsert);
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      (payload) => {
+        void signMessageMedia(payload.new as MessageRow).then(events.onUpdate);
+      },
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'message_reactions' },
+      () => events.onReaction(),
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'conversation_members',
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      () => events.onMemberRead(),
     )
     .subscribe();
 }

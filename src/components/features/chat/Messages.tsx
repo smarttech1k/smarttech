@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   ArrowLeft,
+  Check,
   CheckCheck,
   ChevronRight,
+  Clock,
   FileText,
   Image,
   Info,
@@ -18,6 +20,7 @@ import {
   Bold,
   Camera,
   Copy,
+  CornerUpRight,
   Download,
   GraduationCap,
   ImagePlus,
@@ -58,13 +61,16 @@ import { supabase } from '../../../lib/supabase';
 import {
   ConversationSummary,
   getCurrentUserId,
+  getOtherLastReadAt,
   listConversations,
   listMessages,
   markConversationRead,
+  markMessagesDelivered,
   MemberProfile,
   MessageRow,
   removeMessageSubscription,
   listFriends,
+  forwardMessage,
   sendMessage,
   deleteMessage,
   setMessagePinned,
@@ -85,10 +91,10 @@ const avatarFallback = (id: string) => `https://i.pravatar.cc/150?u=${id}`;
 const LazyKorusaToolsMenu = React.lazy(() => import('./KorusaToolsMenu').then((module) => ({ default: module.KorusaToolsMenu })));
 type InboxFilter = 'all' | 'unread' | 'groups' | 'archived' | 'favorites' | 'media' | 'pinned' | 'recent';
 
-const inboxFilters: Array<{ id: InboxFilter; label: string }> = [
+const inboxFilters: Array<{ id: InboxFilter; label: string; comingSoon?: boolean }> = [
   { id: 'all', label: 'All' },
   { id: 'unread', label: 'Unread' },
-  { id: 'groups', label: 'Groups' },
+  { id: 'groups', label: 'Groups', comingSoon: true },
   { id: 'archived', label: 'Archived' },
   { id: 'favorites', label: 'Favorites' },
   { id: 'media', label: 'Media' },
@@ -174,7 +180,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   const [sharingExperience, setSharingExperience] = useState(false);
   const [visibleMessageCount, setVisibleMessageCount] = useState(120);
   const [pendingShare, setPendingShare] = useState<PendingShare | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<MessageRow | null>(null);
+  const [forwardTargets, setForwardTargets] = useState<string[]>([]);
+  const [forwarding, setForwarding] = useState(false);
   const activeConversation = conversations.find((item) => item.conversationId === selectedId);
+  const activeOtherUserId = activeConversation?.otherUserId ?? null;
+
+  // The thread subscription needs current conversation data without tearing down
+  // and re-establishing the channel every time the inbox refreshes.
+  const activeConversationRef = useRef<ConversationSummary | undefined>(activeConversation);
+  activeConversationRef.current = activeConversation;
 
   const loadInbox = useCallback(async () => {
     const rows = await listConversations();
@@ -203,6 +218,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
     return () => { active = false; };
   }, []);
 
+  // Background message notifications are only possible once permission is granted,
+  // and the prompt can only be raised from a user gesture on some browsers, so this
+  // asks once on first open and never nags again.
+  useEffect(() => {
+    if (!('Notification' in window) || Notification.permission !== 'default') return;
+    void Notification.requestPermission().catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     if (!currentUserId) return;
     const channel = subscribeToInbox(() => {
@@ -212,43 +235,73 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   }, [currentUserId, loadInbox]);
 
   useEffect(() => {
-    if (!selectedId || !currentUserId) {
+    if (!selectedId || !currentUserId || !activeOtherUserId) {
       setMessages([]);
+      setOtherLastReadAt(null);
       return;
     }
 
+    const otherUserId = activeOtherUserId;
     let active = true;
     setVisibleMessageCount(120);
     setThreadLoading(true);
     setError('');
+
+    const syncReadCursor = () => {
+      void getOtherLastReadAt(selectedId, otherUserId)
+        .then((value) => { if (active) setOtherLastReadAt(value); })
+        .catch(() => undefined);
+    };
+
     void listMessages(selectedId)
       .then((rows) => {
         if (active) setMessages(rows);
+        // Having the thread in hand is what makes inbound messages "delivered".
+        // Receipt bookkeeping must never surface as a thread-loading failure.
+        void markMessagesDelivered(selectedId).catch(() => undefined);
       })
       .catch((caught) => active && setError(toErrorMessage(caught)))
       .finally(() => active && setThreadLoading(false));
+
+    syncReadCursor();
 
     void markConversationRead(selectedId, currentUserId)
       .then(loadInbox)
       .catch((caught) => setError(toErrorMessage(caught)));
 
-    const channel = subscribeToConversation(selectedId, (message) => {
-      setMessages((previous) =>
-        previous.some((item) => item.id === message.id) ? previous : [...previous, message],
-      );
-      if (message.sender_id !== currentUserId) {
-        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification(activeConversation?.fullName || 'New Korusa message', { body: message.body, icon: activeConversation?.avatarUrl || undefined });
+    const channel = subscribeToConversation(selectedId, {
+      onInsert: (message) => {
+        setMessages((previous) =>
+          previous.some((item) => item.id === message.id) ? previous : [...previous, message],
+        );
+        if (message.sender_id !== currentUserId) {
+          const conversation = activeConversationRef.current;
+          if (document.hidden && 'Notification' in window && Notification.permission === 'granted' && conversation?.notificationsEnabled) {
+            new Notification(conversation.fullName || 'New Korusa message', { body: message.body, icon: conversation.avatarUrl || undefined });
+          }
+          void markMessagesDelivered(selectedId).catch(() => undefined);
+          void markConversationRead(selectedId, currentUserId).then(loadInbox);
         }
-        void markConversationRead(selectedId, currentUserId).then(loadInbox);
-      }
+      },
+      // Edits, deletes, pins and delivery transitions all arrive as UPDATEs.
+      onUpdate: (message) => {
+        setMessages((previous) =>
+          previous.map((item) => (item.id === message.id ? { ...item, ...message } : item)),
+        );
+      },
+      onReaction: () => {
+        void listMessages(selectedId)
+          .then((rows) => { if (active) setMessages(rows); })
+          .catch(() => undefined);
+      },
+      onMemberRead: syncReadCursor,
     });
 
     return () => {
       active = false;
       void removeMessageSubscription(channel);
     };
-  }, [selectedId, currentUserId, loadInbox]);
+  }, [selectedId, currentUserId, activeOtherUserId, loadInbox]);
 
   useEffect(() => {
     const unread = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
@@ -286,13 +339,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
       try {
         setDrawerLoading(true);
         const targetId = activeConversation.otherUserId;
-        const [profileResult, followersResult, followingResult, postsResult, viewerFollowingResult, readResult] = await Promise.all([
+        const [profileResult, followersResult, followingResult, postsResult, viewerFollowingResult] = await Promise.all([
           supabase.from('profiles').select('id, username, full_name, avatar_url, cover_url, bio').eq('id', targetId).single(),
           supabase.from('follows').select('follower_id').eq('following_id', targetId),
           supabase.from('follows').select('following_id').eq('follower_id', targetId),
           supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', targetId),
           supabase.from('follows').select('following_id').eq('follower_id', currentUserId),
-          supabase.from('conversation_members').select('last_read_at').eq('conversation_id', activeConversation.conversationId).eq('user_id', targetId).single(),
         ]);
         if (profileResult.error) throw profileResult.error;
         if (!active) return;
@@ -301,7 +353,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
         setDrawerProfile(profileResult.data as DrawerProfile);
         setDrawerStats({ followers: targetFollowers.length, following: followingResult.data?.length || 0, mutual: targetFollowers.filter((id) => viewerFollowing.has(id)).length, posts: postsResult.count || 0 });
         setFollowingTarget(targetFollowers.includes(currentUserId));
-        setOtherLastReadAt(readResult.data?.last_read_at || null);
       } catch (caught) {
         if (active) setError(toErrorMessage(caught));
       } finally {
@@ -661,8 +712,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
 
-  const handleStartChat = async (profile: MemberProfile) => {
+  const submitForward = async () => {
+    if (!forwardingMessage || !currentUserId || forwardTargets.length === 0) return;
     try {
+      setForwarding(true);
+      setError('');
+      for (const targetId of forwardTargets) {
+        await forwardMessage(forwardingMessage.id, targetId, currentUserId);
+      }
+      const forwardedToActive = selectedId ? forwardTargets.includes(selectedId) : false;
+      setForwardingMessage(null);
+      setForwardTargets([]);
+      if (forwardedToActive) await refreshThread();
+      await loadInbox();
+    } catch (caught) {
+      setError(toErrorMessage(caught));
+    } finally {
+      setForwarding(false);
+    }
+  };
+
+  const handleStartChat = async (profile: MemberProfile) => {    try {
       setError('');
       const conversationId = await startDirectConversation(profile.id);
       await loadInbox();
@@ -700,7 +770,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
           </div>
           <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide" aria-label="Conversation filters">
             {inboxFilters.map((item) => (
-              <button key={item.id} type="button" onClick={() => setInboxFilter(item.id)} className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all ${inboxFilter === item.id ? 'bg-sun-primary text-white shadow-sm shadow-sun-primary/20' : 'border border-sun-border bg-sun-surface text-sun-text-muted hover:border-sun-primary/35 hover:text-sun-primary'}`}>
+              <button key={item.id} type="button" disabled={item.comingSoon} title={item.comingSoon ? 'Group conversations are coming soon' : undefined} onClick={() => setInboxFilter(item.id)} className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all ${item.comingSoon ? 'cursor-not-allowed border border-dashed border-sun-border text-sun-text-muted/50' : inboxFilter === item.id ? 'bg-sun-primary text-white shadow-sm shadow-sun-primary/20' : 'border border-sun-border bg-sun-surface text-sun-text-muted hover:border-sun-primary/35 hover:text-sun-primary'}`}>
                 {item.label}
               </button>
             ))}
@@ -709,7 +779,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
 
         {error && (
           <div className="m-3 flex gap-2 rounded-xl border border-red-500/20 bg-red-500/8 p-3 text-xs text-red-600">
-            <AlertCircle size={16} className="shrink-0" /><span>{error}</span>
+            <AlertCircle size={16} className="shrink-0" /><span className="flex-1">{error}</span>
+            <button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={14} /></button>
           </div>
         )}
 
@@ -790,6 +861,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
             </header>
 
             <AnimatePresence>
+              {error && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="shrink-0 overflow-hidden border-b border-red-500/20 bg-red-500/8 md:hidden">
+                  <div className="flex items-start gap-2 p-3 text-xs text-red-600">
+                    <AlertCircle size={15} className="mt-px shrink-0" />
+                    <span className="flex-1">{error}</span>
+                    <button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={14} /></button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
               {chatSearchOpen && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 54, opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="shrink-0 overflow-hidden border-b border-sun-border bg-sun-surface">
                   <div className="relative mx-auto max-w-3xl px-4 py-2">
@@ -819,7 +902,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                     const showDay = !previous || !sameDay(previous.created_at, message.created_at);
                     const repliedMessage = message.reply_to_id ? messages.find((item) => item.id === message.reply_to_id) : null;
                     const reactionGroups = Object.entries((message.message_reactions || []).reduce<Record<string, number>>((groups, reaction) => ({ ...groups, [reaction.emoji]: (groups[reaction.emoji] || 0) + 1 }), {}));
-                    const seen = !!otherLastReadAt && new Date(message.created_at).getTime() <= new Date(otherLastReadAt).getTime();
                     return (
                       <React.Fragment key={message.id}>
                         {showDay && <div className="my-5 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sun-text-muted before:h-px before:flex-1 before:bg-sun-border/60 after:h-px after:flex-1 after:bg-sun-border/60"><span>{formatDay(message.created_at)}</span></div>}
@@ -830,13 +912,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                             <button type="button" onClick={() => setMessageMenuId(messageMenuId === message.id ? null : message.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-sun-surface text-sun-text-muted shadow-sm hover:text-sun-primary" aria-label="Message actions"><MoreHorizontal size={13} /></button>
                             {reactionMessageId === message.id && (
                               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`absolute bottom-9 z-30 flex gap-1 rounded-full border border-sun-border bg-sun-surface p-1.5 shadow-xl ${mine ? 'right-0' : 'left-0'}`}>
-                                {['❤️', '������', '������', '������', '������', '������', '������', '������'].map((emoji) => <button key={emoji} type="button" onClick={async () => { await toggleMessageReaction(message.id, emoji); setReactionMessageId(null); await refreshThread(); }} className="text-base transition-transform hover:scale-125">{emoji}</button>)}
+                                {['❤️', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}', '\u{1F525}', '\u{1F389}'].map((emoji) => <button key={emoji} type="button" onClick={async () => { await toggleMessageReaction(message.id, emoji); setReactionMessageId(null); await refreshThread(); }} className="text-base transition-transform hover:scale-125">{emoji}</button>)}
                               </motion.div>
                             )}
                             {messageMenuId === message.id && (
                               <div className={`fixed inset-x-3 bottom-3 z-[100] rounded-3xl border border-sun-border bg-sun-surface p-2 text-sun-text-main shadow-2xl md:absolute md:inset-x-auto md:bottom-9 md:w-44 md:rounded-2xl md:p-1.5 ${mine ? 'md:right-0' : 'md:left-0'}`}>
                                 <HeaderMenuButton icon={Copy} label="Copy" onClick={() => { void navigator.clipboard.writeText(message.body); setMessageMenuId(null); }} />
                                 <HeaderMenuButton icon={Reply} label="Reply" onClick={() => { setReplyingTo(message); setMessageMenuId(null); }} />
+                                <HeaderMenuButton icon={CornerUpRight} label="Forward" onClick={() => { setForwardingMessage(message); setForwardTargets([]); setMessageMenuId(null); }} />
                                 <HeaderMenuButton icon={Pin} label={message.pinned_at ? 'Unpin' : 'Pin'} onClick={() => void setMessagePinned(message.id, !message.pinned_at).then(refreshThread)} />
                                 <HeaderMenuButton icon={Sparkles} label="Explain with AI" onClick={() => { setMessageMenuId(null); void runAiAction('explain', message.body); }} />
                                 <HeaderMenuButton icon={Sparkles} label="Translate with AI" onClick={() => { setMessageMenuId(null); void runAiAction('translate', message.body); }} />
@@ -860,7 +943,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                               {message.edited_at && <span>Edited</span>}
                               {message.pinned_at && <Pin size={9} />}
                               {formatMessageTime(message.created_at)}
-                              {mine && <CheckCheck size={11} className={seen ? 'opacity-100' : 'opacity-55'} aria-label={seen ? `Seen ${formatMessageTime(otherLastReadAt || message.created_at)}` : message.delivery_state} />}
+                              {mine && <DeliveryTicks state={resolveDeliveryState(message, otherLastReadAt)} />}
                             </div>
                             {reactionGroups.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{reactionGroups.map(([emoji, count]) => <button key={emoji} type="button" onClick={() => void toggleMessageReaction(message.id, emoji).then(refreshThread)} className={`rounded-full border px-1.5 py-0.5 text-[10px] shadow-sm ${mine ? 'border-white/20 bg-white/10' : 'border-sun-border bg-sun-surface-light'}`}>{emoji} {count}</button>)}</div>}
                           </motion.div>
@@ -977,7 +1060,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                     </div>
                     <div className="mt-3 flex gap-2">
                       <button type="button" onClick={async () => { if (!window.confirm('Block this member? Messaging and following will be restricted.')) return; await supabase.rpc('set_user_block', { target_user_id: activeConversation.otherUserId, should_block: true }); setDetailsOpen(false); await loadInbox(); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-red-500/20 px-3 py-2 text-[10px] font-semibold text-red-500 hover:bg-red-500/10"><Ban size={13} />Block</button>
-                      <button type="button" onClick={async () => { const details = window.prompt('Briefly describe why you are reporting this member:'); if (!details?.trim()) return; const { error: reportError } = await supabase.from('user_reports').insert({ reporter_id: currentUserId, reported_id: activeConversation.otherUserId, reason: 'conversation_safety', details: details.trim() }); if (reportError) setError(reportError.message); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-sun-border px-3 py-2 text-[10px] font-semibold text-sun-text-muted hover:text-red-500"><Flag size={13} />Report</button>
+                      <button type="button" onClick={async () => { const details = window.prompt('Briefly describe why you are reporting this member:'); if (!details?.trim()) return; const { error: reportError } = await supabase.from('user_reports').insert({ reporter_id: currentUserId, reported_id: activeConversation.otherUserId, reason: 'conversation_safety', details: details.trim() }); if (reportError) setError(reportError.message); else setError(''); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-sun-border px-3 py-2 text-[10px] font-semibold text-sun-text-muted hover:text-red-500"><Flag size={13} />Report</button>
                     </div>
                   </>
                 )}
@@ -1036,6 +1119,39 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
           </section>
         </div>
       )}
+      {forwardingMessage && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-md overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="forward-title">
+            <header className="flex items-center justify-between border-b border-sun-border p-5">
+              <div><h2 id="forward-title" className="font-display text-xl font-semibold">Forward message</h2><p className="text-xs text-sun-text-muted">Choose one or more conversations</p></div>
+              <button type="button" onClick={() => { setForwardingMessage(null); setForwardTargets([]); }} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Cancel forwarding"><X size={19} /></button>
+            </header>
+            <div className="p-4">
+              <div className="mb-3 rounded-xl border border-sun-border bg-sun-surface-light p-3">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-sun-text-muted">Forwarding</p>
+                <p className="mt-1 line-clamp-2 text-xs">{forwardingMessage.body}</p>
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {conversations.filter((item) => item.canSend).length === 0 ? (
+                  <p className="p-6 text-center text-xs text-sun-text-muted">No conversations available to forward to.</p>
+                ) : conversations.filter((item) => item.canSend).map((conversation) => {
+                  const checked = forwardTargets.includes(conversation.conversationId);
+                  return (
+                    <button key={conversation.conversationId} type="button" aria-pressed={checked} onClick={() => setForwardTargets((previous) => checked ? previous.filter((id) => id !== conversation.conversationId) : [...previous, conversation.conversationId])} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${checked ? 'border-sun-primary bg-sun-primary/10' : 'border-transparent hover:bg-sun-surface-light'}`}>
+                      <Avatar src={conversation.avatarUrl || avatarFallback(conversation.otherUserId)} name={conversation.fullName || conversation.username || 'Member'} />
+                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{conversation.fullName || conversation.username || 'Korusa member'}</p><p className="truncate text-xs text-sun-text-muted">@{conversation.username || 'member'}</p></div>
+                      {checked && <Check size={16} className="shrink-0 text-sun-primary" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={() => void submitForward()} disabled={forwarding || forwardTargets.length === 0} className="mt-3 w-full rounded-xl bg-gradient-to-r from-sun-primary to-sun-secondary px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sun-primary/15 disabled:opacity-40">
+                {forwarding ? 'Forwarding...' : forwardTargets.length > 1 ? `Forward to ${forwardTargets.length} chats` : 'Forward'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {korusaToolsOpen && <React.Suspense fallback={<div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/40"><Loader2 className="animate-spin text-white" /></div>}><LazyKorusaToolsMenu onClose={() => setKorusaToolsOpen(false)} onCreate={shareKorusaExperience} /></React.Suspense>}
     </div>
   );
@@ -1046,6 +1162,34 @@ const HeaderMenuButton = ({ icon: Icon, label, onClick, danger = false }: { icon
     <Icon size={16} /><span>{label}</span>
   </button>
 );
+
+// The stored delivery_state is authoritative, but the other member's read cursor
+// moves first on their client. Treating a message older than the cursor as seen
+// keeps the ticks honest while the 'seen' write is still in flight.
+function resolveDeliveryState(message: MessageRow, otherLastReadAt: string | null): MessageRow['delivery_state'] {
+  if (message.delivery_state === 'failed') return 'failed';
+  if (message.delivery_state === 'seen') return 'seen';
+  if (otherLastReadAt && new Date(message.created_at).getTime() <= new Date(otherLastReadAt).getTime()) {
+    return 'seen';
+  }
+  return message.delivery_state;
+}
+
+const DeliveryTicks = ({ state }: { state: MessageRow['delivery_state'] }) => {
+  if (state === 'failed') {
+    return <AlertCircle size={11} className="text-red-300" aria-label="Failed to send" />;
+  }
+  if (state === 'sending') {
+    return <Clock size={10} className="opacity-55" aria-label="Sending" />;
+  }
+  if (state === 'sent') {
+    return <Check size={11} className="opacity-55" aria-label="Sent" />;
+  }
+  if (state === 'delivered') {
+    return <CheckCheck size={11} className="opacity-55" aria-label="Delivered" />;
+  }
+  return <CheckCheck size={11} className="text-sky-300" aria-label="Seen" />;
+};
 
 function toErrorMessage(error: unknown) {
   if (!(error instanceof Error)) return 'Something went wrong. Please try again.';

@@ -201,7 +201,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                       <stop offset="95%" stopColor="#6D28D9" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="6 6" stroke="#e2e8f0" dark:stroke="#ffffff05" vertical={false} />
+                  <CartesianGrid strokeDasharray="6 6" stroke="#e2e8f0" vertical={false} />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
@@ -263,7 +263,7 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
                       <stop offset="95%" stopColor="#A78BFA" stopOpacity={0.8}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="6 6" stroke="#e2e8f0" dark:stroke="#ffffff05" vertical={false} />
+                  <CartesianGrid strokeDasharray="6 6" stroke="#e2e8f0" vertical={false} />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 

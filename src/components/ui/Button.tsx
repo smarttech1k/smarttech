@@ -1,8 +1,14 @@
 import React from 'react';
 import { motion } from 'motion/react';
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+// motion.button redefines the drag and animation handlers with its own signatures,
+// so those are dropped from the DOM prop set to avoid a conflicting overload.
+type NativeButtonProps = Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  'onDrag' | 'onDragStart' | 'onDragEnd' | 'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration'
+>;
+
+export interface ButtonProps extends NativeButtonProps {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;

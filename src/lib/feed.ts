@@ -1,16 +1,18 @@
 import { supabase } from './supabase';
 
+export type ProfileRef = {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+};
+
 export type FeedComment = {
   id: string;
   content: string;
   created_at: string;
   user_id: string;
-  profiles: {
-    id: string;
-    full_name: string | null;
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
+  profiles: ProfileRef | null;
 };
 
 export type FeedPost = {
@@ -19,15 +21,20 @@ export type FeedPost = {
   content: string;
   media_url: string | null;
   created_at: string;
-  profiles: {
-    id: string;
-    full_name: string | null;
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
+  profiles: ProfileRef | null;
   likes: Array<{ user_id: string }>;
   comments: Array<FeedComment>;
 };
+
+// PostgREST returns an embedded to-one relation as a single object, but without
+// generated database types the client widens it to an array. Accept both.
+function toProfileRef(value: ProfileRef | ProfileRef[] | null): ProfileRef | null {
+  if (!value) {
+    return null;
+  }
+
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
 
 export async function fetchFeed() {
   const {
@@ -85,7 +92,22 @@ export async function fetchFeed() {
   }
 
   return {
-    posts: (data ?? []) as FeedPost[],
+    posts: (data ?? []).map((post): FeedPost => ({
+      id: post.id,
+      user_id: post.user_id,
+      content: post.content,
+      media_url: post.media_url,
+      created_at: post.created_at,
+      profiles: toProfileRef(post.profiles),
+      likes: post.likes ?? [],
+      comments: (post.comments ?? []).map((comment): FeedComment => ({
+        id: comment.id,
+        content: comment.content,
+        created_at: comment.created_at,
+        user_id: comment.user_id,
+        profiles: toProfileRef(comment.profiles),
+      })),
+    })),
     currentUserId: user?.id ?? null,
   };
 }
