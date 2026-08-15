@@ -61,6 +61,7 @@ import { supabase } from '../../../lib/supabase';
 import {
   ConversationSummary,
   getCurrentUserId,
+  getMessageReactions,
   getOtherLastReadAt,
   listConversations,
   listMessages,
@@ -90,6 +91,11 @@ interface MessagesViewProps {
 const avatarFallback = (id: string) => `https://i.pravatar.cc/150?u=${id}`;
 const LazyKorusaToolsMenu = React.lazy(() => import('./KorusaToolsMenu').then((module) => ({ default: module.KorusaToolsMenu })));
 type InboxFilter = 'all' | 'unread' | 'groups' | 'archived' | 'favorites' | 'media' | 'pinned' | 'recent';
+
+// Typing indicators are refreshed on a timer rather than per keystroke, and cleared
+// once the draft has been idle for longer than a natural pause between words.
+const TYPING_PING_INTERVAL_MS = 2500;
+const TYPING_IDLE_TIMEOUT_MS = 1400;
 
 const inboxFilters: Array<{ id: InboxFilter; label: string; comingSoon?: boolean }> = [
   { id: 'all', label: 'All' },
@@ -122,6 +128,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   const [searchParams] = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingBroadcastRef = useRef({ typing: false, sentAt: 0 });
   const attachmentRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -191,10 +198,30 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   const activeConversationRef = useRef<ConversationSummary | undefined>(activeConversation);
   activeConversationRef.current = activeConversation;
 
+  // Realtime reaction events carry no conversation id, so the handler needs to know
+  // which messages are on screen without re-subscribing whenever the thread changes.
+  const messagesRef = useRef<MessageRow[]>(messages);
+  messagesRef.current = messages;
+
   const loadInbox = useCallback(async () => {
     const rows = await listConversations();
     setConversations(rows);
     return rows;
+  }, []);
+
+  // Re-reads the reactions for one message and swaps them into that bubble. Reaction
+  // traffic is chatty and arrives for every conversation the user belongs to, so
+  // anything outside the loaded thread is dropped without a request.
+  const patchMessageReactions = useCallback(async (messageId: string) => {
+    if (!messagesRef.current.some((item) => item.id === messageId)) return;
+    try {
+      const reactions = await getMessageReactions(messageId);
+      setMessages((previous) =>
+        previous.map((item) => (item.id === messageId ? { ...item, message_reactions: reactions } : item)),
+      );
+    } catch {
+      // A dropped reaction refresh is cosmetic; the next thread load will correct it.
+    }
   }, []);
 
   useEffect(() => {
@@ -289,10 +316,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
           previous.map((item) => (item.id === message.id ? { ...item, ...message } : item)),
         );
       },
-      onReaction: () => {
-        void listMessages(selectedId)
-          .then((rows) => { if (active) setMessages(rows); })
-          .catch(() => undefined);
+      onReaction: (messageId) => {
+        if (active) void patchMessageReactions(messageId);
       },
       onMemberRead: syncReadCursor,
     });
@@ -301,7 +326,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
       active = false;
       void removeMessageSubscription(channel);
     };
-  }, [selectedId, currentUserId, activeOtherUserId, loadInbox]);
+  }, [selectedId, currentUserId, activeOtherUserId, loadInbox, patchMessageReactions]);
 
   useEffect(() => {
     const unread = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
@@ -321,14 +346,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') await channel.track({ userId: currentUserId, onlineAt: new Date().toISOString() });
       });
-    return () => { presenceRef.current = null; void supabase.removeChannel(channel); };
+    return () => {
+      presenceRef.current = null;
+      // A new thread starts with no typing state broadcast on its channel.
+      typingBroadcastRef.current = { typing: false, sentAt: 0 };
+      setOtherTyping(false);
+      void supabase.removeChannel(channel);
+    };
   }, [selectedId, currentUserId, activeConversation?.otherUserId]);
 
   useEffect(() => {
     const channel = presenceRef.current;
     if (!channel || !currentUserId) return;
-    void channel.send({ type: 'broadcast', event: 'typing', payload: { userId: currentUserId, typing: !!draft.trim() } });
-    const timer = window.setTimeout(() => void channel.send({ type: 'broadcast', event: 'typing', payload: { userId: currentUserId, typing: false } }), 1400);
+    const typing = !!draft.trim();
+    const state = typingBroadcastRef.current;
+    const send = (value: boolean) => {
+      state.typing = value;
+      state.sentAt = Date.now();
+      void channel.send({ type: 'broadcast', event: 'typing', payload: { userId: currentUserId, typing: value } });
+    };
+
+    // One ping per interval rather than one per keystroke. A long message used to put
+    // a broadcast on the wire for every character typed.
+    if (typing && (!state.typing || Date.now() - state.sentAt > TYPING_PING_INTERVAL_MS)) send(true);
+    else if (!typing && state.typing) send(false);
+
+    if (!typing) return;
+    // Rescheduled on each keystroke, so this only lands once the draft goes idle.
+    const timer = window.setTimeout(() => { if (state.typing) send(false); }, TYPING_IDLE_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
   }, [draft, currentUserId]);
 
@@ -746,7 +791,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="relative flex h-full min-h-[560px] overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(109,40,217,0.08),transparent_32%)] text-sun-text-main">
+    <div className="relative flex h-full min-h-0 overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(109,40,217,0.08),transparent_32%)] text-sun-text-main">
       <aside style={{ '--inbox-width': `${inboxWidth}px` } as React.CSSProperties} className={`relative h-full w-full shrink-0 border-r border-sun-border/80 bg-sun-surface/95 backdrop-blur-xl md:flex md:w-[var(--inbox-width)] md:flex-col ${selectedId ? 'hidden' : 'flex flex-col'}`}>
         <header className="border-b border-sun-border/80 p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between">
@@ -819,7 +864,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
         <div role="separator" aria-label="Resize conversation sidebar" onPointerDown={(event) => beginResize(event, 'inbox')} className="absolute inset-y-0 right-0 z-20 hidden w-1 cursor-col-resize bg-transparent transition-colors hover:bg-sun-primary/40 md:block" />
       </aside>
 
-      {!selectedId && <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.9 }} type="button" onClick={() => setNewChatOpen(true)} className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sun-primary to-sun-secondary text-white shadow-xl shadow-sun-primary/25 md:hidden" aria-label="Start a new conversation"><Plus size={24} /></motion.button>}
+      {/* Messages is a full-screen route, so no mobile bottom nav sits underneath —
+          the button only has to clear the home indicator on notched devices. */}
+      {!selectedId && <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.9 }} type="button" onClick={() => setNewChatOpen(true)} style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }} className="fixed right-4 z-30 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sun-primary to-sun-secondary text-white shadow-xl shadow-sun-primary/25 md:hidden" aria-label="Start a new conversation"><Plus size={24} /></motion.button>}
 
       <main className={`h-full min-w-0 flex-1 flex-col ${selectedId ? 'flex' : 'hidden md:flex'}`}>
         {activeConversation ? (
@@ -912,7 +959,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                             <button type="button" onClick={() => setMessageMenuId(messageMenuId === message.id ? null : message.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-sun-surface text-sun-text-muted shadow-sm hover:text-sun-primary" aria-label="Message actions"><MoreHorizontal size={13} /></button>
                             {reactionMessageId === message.id && (
                               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`absolute bottom-9 z-30 flex gap-1 rounded-full border border-sun-border bg-sun-surface p-1.5 shadow-xl ${mine ? 'right-0' : 'left-0'}`}>
-                                {['❤️', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}', '\u{1F525}', '\u{1F389}'].map((emoji) => <button key={emoji} type="button" onClick={async () => { await toggleMessageReaction(message.id, emoji); setReactionMessageId(null); await refreshThread(); }} className="text-base transition-transform hover:scale-125">{emoji}</button>)}
+                                {['❤️', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}', '\u{1F525}', '\u{1F389}'].map((emoji) => <button key={emoji} type="button" onClick={async () => { setReactionMessageId(null); await toggleMessageReaction(message.id, emoji); await patchMessageReactions(message.id); }} className="text-base transition-transform hover:scale-125">{emoji}</button>)}
                               </motion.div>
                             )}
                             {messageMenuId === message.id && (
@@ -945,7 +992,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                               {formatMessageTime(message.created_at)}
                               {mine && <DeliveryTicks state={resolveDeliveryState(message, otherLastReadAt)} />}
                             </div>
-                            {reactionGroups.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{reactionGroups.map(([emoji, count]) => <button key={emoji} type="button" onClick={() => void toggleMessageReaction(message.id, emoji).then(refreshThread)} className={`rounded-full border px-1.5 py-0.5 text-[10px] shadow-sm ${mine ? 'border-white/20 bg-white/10' : 'border-sun-border bg-sun-surface-light'}`}>{emoji} {count}</button>)}</div>}
+                            {reactionGroups.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{reactionGroups.map(([emoji, count]) => <button key={emoji} type="button" onClick={() => void toggleMessageReaction(message.id, emoji).then(() => patchMessageReactions(message.id))} className={`rounded-full border px-1.5 py-0.5 text-[10px] shadow-sm ${mine ? 'border-white/20 bg-white/10' : 'border-sun-border bg-sun-surface-light'}`}>{emoji} {count}</button>)}</div>}
                           </motion.div>
                         </div>
                       </React.Fragment>
@@ -992,7 +1039,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                 )}
                 <div className={`flex items-end gap-1 rounded-[22px] border bg-sun-surface-light p-2 shadow-sm transition-all focus-within:border-sun-primary focus-within:shadow-sun-glow focus-within:ring-4 focus-within:ring-sun-primary/10 ${recording ? 'border-red-400' : 'border-sun-border'}`}>
                   <button type="button" onClick={() => openAttachmentPicker('image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/webm,application/pdf,text/plain')} disabled={uploading || !activeConversation.canSend} className="composer-tool" aria-label="Attach file">{uploading ? <Loader2 size={17} className="animate-spin" /> : <Paperclip size={17} />}</button>
-                  <button type="button" onClick={() => openAttachmentPicker('image/*', true)} className="composer-tool hidden sm:flex" aria-label="Open camera"><Camera size={17} /></button>
+                  {/* capture="environment" only does anything on a phone, so this one
+                      stays visible on mobile; the paperclip covers the desktop case. */}
+                  <button type="button" onClick={() => openAttachmentPicker('image/*', true)} className="composer-tool" aria-label="Open camera"><Camera size={17} /></button>
                   <button type="button" onClick={() => openAttachmentPicker('image/*,video/*')} className="composer-tool hidden sm:flex" aria-label="Open gallery"><ImagePlus size={17} /></button>
                   <button type="button" onClick={() => { setEmojiOpen((value) => !value); setFormattingOpen(false); }} className="composer-tool" aria-label="Emoji picker"><SmilePlus size={17} /></button>
                   <button type="button" onClick={() => { setFormattingOpen((value) => !value); setEmojiOpen(false); }} className="composer-tool hidden sm:flex" aria-label="Formatting toolbar"><Bold size={16} /></button>
@@ -1003,7 +1052,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                   ) : <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void handleSend(); } }} rows={1} maxLength={4000} disabled={!activeConversation.canSend} placeholder={activeConversation.canSend ? 'Write a message...' : 'Waiting for a reply...'} className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-sun-text-muted/60 disabled:cursor-not-allowed disabled:opacity-60" />}
                   {!draft.trim() && !editingMessage ? <button type="button" onClick={recording ? stopVoiceRecording : () => void startVoiceRecording()} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-md ${recording ? 'bg-red-500' : 'bg-gradient-to-br from-sun-primary to-sun-secondary'}`} aria-label={recording ? 'Stop recording' : 'Record voice note'}>{recording ? <Square size={16} fill="currentColor" /> : <Mic size={18} />}</button> : <motion.button whileTap={{ scale: 0.9 }} type="button" onClick={() => void handleSend()} disabled={sending || !activeConversation.canSend} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sun-primary to-sun-secondary text-white shadow-md shadow-sun-primary/20 disabled:opacity-40" aria-label="Send message">{sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}</motion.button>}
                 </div>
-                <div className="mt-1.5 hidden items-center justify-end gap-1 sm:flex"><button type="button" onClick={shareLocation} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-semibold text-sun-text-muted hover:text-sun-primary"><MapPin size={11} />Location</button></div>
+                <div className="mt-1.5 flex items-center justify-end gap-1"><button type="button" onClick={shareLocation} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-sun-text-muted hover:text-sun-primary sm:text-[9px]"><MapPin size={11} />Location</button></div>
               </div>
             </div>
           </>

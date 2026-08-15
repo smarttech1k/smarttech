@@ -82,14 +82,47 @@ export async function getCurrentUserId() {
 const MESSAGE_COLUMNS =
   'id, conversation_id, sender_id, body, created_at, edited_at, message_type, media_url, media_name, media_size, metadata, reply_to_id, forwarded_from_id, pinned_at, pinned_by, delivery_state, deleted_at, message_reactions(emoji, user_id)';
 
+const MESSAGE_PAGE_SIZE = 500;
+
+// Long enough that a thread left open for a working day keeps its media alive.
+const MEDIA_URL_TTL_SECONDS = 60 * 60 * 8;
+
 // Stored media_url values are private storage paths. Realtime payloads deliver the
 // raw path, so every code path that surfaces a message has to sign it first.
 export async function signMessageMedia(message: MessageRow): Promise<MessageRow> {
   if (!message.media_url || /^https?:\/\//.test(message.media_url)) return message;
   const { data: signed } = await supabase.storage
     .from('message-media')
-    .createSignedUrl(message.media_url, 3600);
+    .createSignedUrl(message.media_url, MEDIA_URL_TTL_SECONDS);
   return { ...message, media_url: signed?.signedUrl || null };
+}
+
+// Signs a whole thread's media in one request. Signing per message meant a storage
+// round trip for every attachment in history on each thread open.
+async function signMessageMediaBatch(messages: MessageRow[]): Promise<MessageRow[]> {
+  const paths = Array.from(
+    new Set(
+      messages
+        .map((message) => message.media_url)
+        .filter((url): url is string => !!url && !/^https?:\/\//.test(url)),
+    ),
+  );
+  if (!paths.length) return messages;
+
+  const { data, error } = await supabase.storage
+    .from('message-media')
+    .createSignedUrls(paths, MEDIA_URL_TTL_SECONDS);
+  if (error) throw error;
+
+  const signedByPath = new Map<string, string>();
+  for (const entry of data ?? []) {
+    if (entry.path && entry.signedUrl) signedByPath.set(entry.path, entry.signedUrl);
+  }
+
+  return messages.map((message) => {
+    if (!message.media_url || /^https?:\/\//.test(message.media_url)) return message;
+    return { ...message, media_url: signedByPath.get(message.media_url) ?? null };
+  });
 }
 
 export async function listConversations(): Promise<ConversationSummary[]> {
@@ -139,14 +172,30 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
     .from('messages')
     .select(MESSAGE_COLUMNS)
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(500);
+    // Newest-first, because Postgres applies ORDER BY before LIMIT: ascending order
+    // here would cap the thread at its *oldest* 500 messages and hide recent history.
+    // The id tiebreak keeps paging stable when timestamps collide.
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(MESSAGE_PAGE_SIZE);
   if (membership.cleared_at) query = query.gt('created_at', membership.cleared_at);
   const { data, error } = await query;
 
   if (error) throw error;
-  const rows = (data ?? []) as MessageRow[];
-  return Promise.all(rows.map(signMessageMedia));
+  // The thread renders oldest-first, so flip back after the newest-first fetch.
+  const rows = ((data ?? []) as MessageRow[]).slice().reverse();
+  return signMessageMediaBatch(rows);
+}
+
+// Reactions for a single message, used to patch one bubble after a reaction changes
+// instead of refetching the entire thread.
+export async function getMessageReactions(messageId: string) {
+  const { data, error } = await supabase
+    .from('message_reactions')
+    .select('emoji, user_id')
+    .eq('message_id', messageId);
+  if (error) throw error;
+  return (data ?? []) as Array<{ emoji: string; user_id: string }>;
 }
 
 export async function sendMessage(
@@ -325,7 +374,7 @@ export async function markMessagesDelivered(conversationId: string) {
 type ConversationEvents = {
   onInsert: (message: MessageRow) => void;
   onUpdate: (message: MessageRow) => void;
-  onReaction: () => void;
+  onReaction: (messageId: string) => void;
   onMemberRead: () => void;
 };
 
@@ -363,8 +412,15 @@ export function subscribeToConversation(
     )
     .on(
       'postgres_changes',
+      // message_reactions has no conversation_id to filter on, so this channel sees
+      // reaction traffic from every conversation the user belongs to. The message id
+      // travels with the event (from new on insert, old on delete) so the caller can
+      // ignore anything outside the open thread rather than refetching blindly.
       { event: '*', schema: 'public', table: 'message_reactions' },
-      () => events.onReaction(),
+      (payload) => {
+        const row = (payload.new ?? payload.old) as { message_id?: string } | null;
+        if (row?.message_id) events.onReaction(row.message_id);
+      },
     )
     .on(
       'postgres_changes',
