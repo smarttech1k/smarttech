@@ -12,12 +12,13 @@
 --   Or: psql "$DATABASE_URL" -f supabase/tests/stories_audience_test.sql
 --
 -- Reading the outcome:
---   All good      -> a results table, every row PASS, plus an "ALL n CHECKS
---                    PASSED" notice.
---   A real defect -> the script ends with an ERROR naming every failed check.
---                    That is the signal. Any FAIL is a bug in the migration.
---   SKIP rows     -> a check could not run here (schema differs); the label
---                    carries the reason. Not a pass.
+--   The run ends with one table. Row 0 is the verdict - PASSED, FAILED, or
+--   PASSED WITH SKIPS - followed by every check in execution order.
+--   Any FAIL row is a real defect in the migration.
+--   A SKIP row means the check could not run here (the schema differs); the
+--   label carries the reason. A skip is not a pass.
+--   If the script stops with an ERROR instead, setup broke before the checks
+--   ran and the message says where.
 
 begin;
 
@@ -354,35 +355,25 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Results
 -- ---------------------------------------------------------------------------
--- FAIL rows sort to the top.
+-- One result set, ending the run, because the Supabase SQL editor displays only
+-- the last statement that returns rows. Row 0 is the verdict, so a failure is
+-- visible without reading the whole table; the rest is in execution order.
+select 0 as seq,
+       case
+         when count(*) filter (where status = 'FAIL') > 0 then 'FAILED'
+         when count(*) filter (where status = 'SKIP') > 0 then 'PASSED WITH SKIPS'
+         else 'PASSED'
+       end as status,
+       count(*) filter (where status = 'FAIL') || ' failed, ' ||
+       count(*) filter (where status = 'SKIP') || ' skipped, out of ' ||
+       count(*) || ' checks' as label,
+       null::boolean as expected,
+       null::boolean as actual
+from story_test_results
+union all
 select seq, status, label, expected, actual
 from story_test_results
-order by (status = 'PASS'), seq;
-
--- Make the verdict impossible to miss even if only the last message is read:
--- any failure ends the script as an ERROR listing every failed check.
-do $$
-declare
-  failures text;
-  skipped text;
-  total integer;
-begin
-  select count(*) into total from story_test_results;
-  select string_agg(label, '; ' order by seq) into failures
-    from story_test_results where status = 'FAIL';
-  select string_agg(label, '; ' order by seq) into skipped
-    from story_test_results where status = 'SKIP';
-
-  if skipped is not null then
-    raise notice 'SKIPPED: %', skipped;
-  end if;
-
-  if failures is not null then
-    raise exception 'STORY AUDIENCE TEST FAILED: %', failures;
-  end if;
-
-  raise notice 'ALL % CHECKS PASSED', total;
-end $$;
+order by seq;
 
 -- Nothing is kept. Change this to COMMIT only if you deliberately want the
 -- fixtures to survive.
