@@ -30,6 +30,7 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Input';
 import { BackButton } from '../../ui/BackButton';
 import { Avatar } from '../../ui/Avatar';
+import { fetchMyProfile, type ProfileRef } from '../../../lib/feed';
 
 type PostType = 'text' | 'photo' | 'video';
 type CreateStep = 'drafting' | 'success';
@@ -81,6 +82,18 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const [profile, setProfile] = useState<ProfileRef | null>(null);
+
+  // The previews below used to show a stock photo of a stranger and the handle
+  // "@creative_learner", so nobody was ever previewing their own post.
+  useEffect(() => {
+    void fetchMyProfile()
+      .then(setProfile)
+      .catch(() => setProfile(null));
+  }, []);
+
+  const previewName = profile?.full_name || profile?.username || null;
+  const previewHandle = profile?.username ? `@${profile.username}` : previewName || 'You';
 
   useEffect(() => {
     setPost((prev) => ({ ...prev, type: postType }));
@@ -321,9 +334,9 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
         >
           <div className="h-full flex flex-col">
             <div className="p-4 flex items-center gap-3 border-b border-sun-border/50">
-              <Avatar size="sm" src="https://i.pravatar.cc/150?u=me" />
+              <Avatar size="sm" src={profile?.avatar_url || undefined} name={previewName || undefined} />
               <div>
-                <p className="text-[10px] font-bold">@creative_learner</p>
+                <p className="text-[10px] font-bold">{previewHandle}</p>
                 <div className="flex items-center gap-1">
                   <Globe size={8} className="text-sun-text-muted" />
                   <p className="text-[8px] text-sun-text-muted">Now • Public</p>
@@ -586,14 +599,19 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
                   <div className="flex items-center gap-4 mb-2">
                     <Avatar
                       size="md"
-                      src="https://i.pravatar.cc/150?u=me"
+                      src={profile?.avatar_url || undefined}
+                      name={previewName || undefined}
                       className="ring-2 ring-sun-primary/20"
                     />
                     <div>
-                      <h4 className="text-sm font-bold">@creative_learner</h4>
-                      <p className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">
-                        Sharing my vibe
-                      </p>
+                      <h4 className="text-sm font-bold">{previewHandle}</h4>
+                      {/* Their real bio, or nothing. The old line read "Sharing my
+                          vibe" for everyone, which was a tagline nobody wrote. */}
+                      {profile?.bio && (
+                        <p className="text-[10px] text-sun-text-muted font-black uppercase tracking-widest">
+                          {profile.bio}
+                        </p>
+                      )}
                     </div>
                   </div>
 

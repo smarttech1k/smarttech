@@ -1,81 +1,122 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Loader2, X } from 'lucide-react';
 import {
   CommunityPost,
-  CreatorSpotlight,
-  HeroSection,
-  LearningRecommendations,
+  PeopleToFollow,
   PostProps,
-  PostType,
   PromptBar,
-  QuickActionCards,
-  TrendingDiscussions,
+  TrendingTags,
+  type SuggestedPerson,
 } from '../features/home/HomeComponents';
+import { StoriesRail } from '../features/stories/StoriesRail';
 import {
   addComment,
-  FeedPost,
-  fetchCreatorSpotlight,
   fetchFeed,
+  fetchMyProfile,
+  fetchTrendingTags,
   likePost,
   unlikePost,
+  type FeedPost,
+  type FeedScope,
+  type ProfileRef,
+  type TrendingTag,
 } from '../../lib/feed';
+import { followUser, getFriendSuggestions } from '../../lib/social';
 
-type Creator = {
-  id: string;
-  username: string | null;
-  full_name: string | null;
-  avatar_url: string | null;
-  bio?: string | null;
-};
+const SCOPES: Array<{ value: FeedScope; label: string }> = [
+  { value: 'latest', label: 'Latest' },
+  { value: 'following', label: 'Following' },
+];
 
 export const HomeView = () => {
   const navigate = useNavigate();
   const [feed, setFeed] = useState<PostProps[]>([]);
-  const [creators, setCreators] = useState<Creator[]>([]);
+  const [scope, setScope] = useState<FeedScope>('latest');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [myProfile, setMyProfile] = useState<ProfileRef | null>(null);
+  const [people, setPeople] = useState<SuggestedPerson[]>([]);
+  const [peopleLoading, setPeopleLoading] = useState(true);
+  const [tags, setTags] = useState<TrendingTag[]>([]);
 
-  const loadFeed = async () => {
+  const toPostProps = (post: FeedPost): PostProps => ({
+    id: post.id,
+    author: {
+      id: post.profiles?.id || post.user_id,
+      name: post.profiles?.full_name || post.profiles?.username || 'Korusa member',
+      handle: post.profiles?.username || '',
+      // No placeholder image: Avatar renders their initials when there is no upload.
+      avatar: post.profiles?.avatar_url,
+      // The author's own bio, or nothing. Never an invented job title.
+      role: post.profiles?.bio || null,
+      isExpert: false,
+    },
+    content: post.content,
+    image: post.media_url,
+    likes: post.likeCount,
+    comments: post.commentCount,
+    commentItems: post.comments,
+    time: formatRelativeTime(post.created_at),
+    likedByMe: post.likedByMe,
+  });
+
+  const loadFeed = useCallback(async (nextScope: FeedScope, tag: string | null) => {
     try {
       setLoading(true);
       setErrorMessage('');
-      const [{ posts, currentUserId: userId }, spotlight] = await Promise.all([
-        fetchFeed(),
-        fetchCreatorSpotlight(3),
-      ]);
-      setCurrentUserId(userId);
-      setCreators(spotlight);
-      setFeed(
-        posts.map((post: FeedPost) => ({
-          id: post.id,
-          type: 'Idea' as PostType,
-          author: {
-            id: post.profiles?.id || post.user_id,
-            name: post.profiles?.full_name || post.profiles?.username || 'Unknown user',
-            handle: post.profiles?.username || '',
-            avatar: post.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${post.user_id}`,
-            role: 'Community member',
-            isExpert: false,
-          },
-          content: post.content,
-          image: post.media_url || undefined,
-          likes: post.likes?.length || 0,
-          comments: post.comments?.length || 0,
-          commentItems: post.comments || [],
-          time: formatRelativeTime(post.created_at),
-          likedByMe: !!userId && post.likes?.some((like) => like.user_id === userId),
-        })),
-      );
+      const page = await fetchFeed({ scope: nextScope, tag });
+      setCurrentUserId(page.currentUserId);
+      setNextCursor(page.nextCursor);
+      setFeed(page.posts.map(toPostProps));
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to load the feed.');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await fetchFeed({ scope, tag: activeTag, cursor: nextCursor });
+      setNextCursor(page.nextCursor);
+      // Guard against a duplicate landing on the boundary if a post shares a timestamp.
+      setFeed((previous) => {
+        const seen = new Set(previous.map((post) => post.id));
+        return [...previous, ...page.posts.filter((post) => !seen.has(post.id)).map(toPostProps)];
+      });
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not load more posts.');
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   useEffect(() => {
-    void loadFeed();
+    void loadFeed(scope, activeTag);
+  }, [loadFeed, scope, activeTag]);
+
+  // Sidebar data and the composer avatar load independently, so a failure in one
+  // does not blank the feed.
+  useEffect(() => {
+    void fetchMyProfile()
+      .then(setMyProfile)
+      .catch(() => setMyProfile(null));
+
+    void getFriendSuggestions(4)
+      .then(setPeople)
+      .catch(() => setPeople([]))
+      .finally(() => setPeopleLoading(false));
+
+    void fetchTrendingTags(6)
+      .then(setTags)
+      .catch(() => setTags([]));
   }, []);
 
   const handleLikeToggle = async (postId: string, currentlyLiked: boolean) => {
@@ -87,49 +128,131 @@ export const HomeView = () => {
   const handleCommentSubmit = async (postId: string, content: string) => {
     if (!currentUserId) return;
     await addComment(postId, currentUserId, content);
-    await loadFeed();
+    await loadFeed(scope, activeTag);
   };
 
   const openProfile = (profileIdOrUsername: string) => {
     if (profileIdOrUsername) navigate(`/profile/${profileIdOrUsername}`);
   };
 
+  const emptyMessage =
+    activeTag
+      ? `No posts tagged #${activeTag} yet.`
+      : scope === 'following'
+        ? 'Nothing here yet. Follow a few people and their posts will show up in this tab.'
+        : 'No posts yet. Start the first conversation.';
+
   return (
     <div className="mx-auto grid max-w-[1360px] grid-cols-1 gap-7 pb-16 lg:grid-cols-12 lg:gap-8">
       <div className="space-y-7 lg:col-span-8 xl:col-span-9">
-        <PromptBar onFocus={() => navigate('/create')} />
-        <HeroSection onExplore={() => navigate('/explore')} onLearn={() => navigate('/learn')} />
-        <QuickActionCards onSparkClick={() => navigate('/sparks')} onCourseClick={() => navigate('/learn')} onProjectClick={() => navigate('/explore')} />
-        <LearningRecommendations onCourseClick={() => navigate('/learn')} />
+        <StoriesRail
+          currentUserId={myProfile?.id ?? null}
+          currentUserName={myProfile?.full_name || myProfile?.username || null}
+          currentUserAvatarUrl={myProfile?.avatar_url || null}
+        />
+
+        <PromptBar
+          onFocus={() => navigate('/create')}
+          avatarUrl={myProfile?.avatar_url}
+          fullName={myProfile?.full_name || myProfile?.username}
+        />
 
         <section className="space-y-4" aria-labelledby="community-heading">
-          <div className="flex items-end justify-between gap-4 px-1">
+          <div className="flex flex-wrap items-end justify-between gap-4 px-1">
             <div>
-              <h2 id="community-heading" className="section-title">Community activity</h2>
-              <p className="section-description mt-1">Fresh ideas and conversations from your network.</p>
+              <h2 id="community-heading" className="section-title">
+                Community activity
+              </h2>
+              <p className="section-description mt-1">
+                {scope === 'following'
+                  ? 'Posts from the people you follow.'
+                  : 'The newest posts across Korusa.'}
+              </p>
             </div>
             <div className="flex rounded-xl border border-sun-border bg-sun-surface p-1 shadow-sm">
-              <button type="button" className="rounded-lg bg-sun-primary px-3 py-1.5 text-xs font-semibold text-white">Trending</button>
-              <button type="button" className="rounded-lg px-3 py-1.5 text-xs font-semibold text-sun-text-muted transition-colors hover:text-sun-text-main">Latest</button>
+              {SCOPES.map((option) => {
+                const active = scope === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setScope(option.value)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      active
+                        ? 'bg-sun-primary text-white'
+                        : 'text-sun-text-muted hover:text-sun-text-main'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {loading && <div className="surface-card p-5 text-sm text-sun-text-muted">Loading your feed…</div>}
-          {errorMessage && <div className="rounded-2xl border border-red-500/25 bg-red-500/8 p-5 text-sm text-red-600">{errorMessage}</div>}
-          {!loading && !errorMessage && feed.length === 0 && <div className="surface-card p-6 text-center text-sm text-sun-text-muted">No posts yet. Start the first conversation.</div>}
+          {activeTag && (
+            <button
+              type="button"
+              onClick={() => setActiveTag(null)}
+              className="ml-1 flex h-9 items-center gap-2 rounded-full border border-sun-primary/30 bg-sun-primary/10 px-3.5 text-xs font-bold text-sun-primary transition-colors hover:bg-sun-primary/15"
+            >
+              #{activeTag}
+              <X size={13} />
+            </button>
+          )}
+
+          {loading && (
+            <div className="surface-card p-5 text-sm text-sun-text-muted">Loading your feed…</div>
+          )}
+          {errorMessage && (
+            <div className="rounded-2xl border border-red-500/25 bg-red-500/8 p-5 text-sm text-red-600">
+              {errorMessage}
+            </div>
+          )}
+          {!loading && !errorMessage && feed.length === 0 && (
+            <div className="surface-card p-6 text-center text-sm text-sun-text-muted">
+              {emptyMessage}
+            </div>
+          )}
 
           <div className="space-y-4">
             {feed.map((post) => (
-              <CommunityPost key={post.id} {...post} onLikeToggle={handleLikeToggle} onCommentSubmit={handleCommentSubmit} onOpenProfile={openProfile} />
+              <CommunityPost
+                key={post.id}
+                {...post}
+                onLikeToggle={handleLikeToggle}
+                onCommentSubmit={handleCommentSubmit}
+                onOpenProfile={openProfile}
+              />
             ))}
           </div>
+
+          {!loading && nextCursor && (
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sun-border bg-sun-surface text-sm font-bold text-sun-text-main transition-colors hover:bg-sun-surface-light disabled:opacity-60"
+            >
+              {loadingMore && <Loader2 size={15} className="animate-spin" />}
+              {loadingMore ? 'Loading' : 'Load more posts'}
+            </button>
+          )}
         </section>
       </div>
 
       <aside className="hidden space-y-5 lg:col-span-4 lg:block xl:col-span-3">
         <div className="sticky top-5 space-y-5">
-          <CreatorSpotlight creators={creators} onOpenProfile={openProfile} />
-          <TrendingDiscussions />
+          <PeopleToFollow
+            people={people}
+            loading={peopleLoading}
+            onOpenProfile={openProfile}
+            onFollow={async (userId) => {
+              await followUser(userId);
+            }}
+          />
+          <TrendingTags tags={tags} onSelect={setActiveTag} />
         </div>
       </aside>
     </div>

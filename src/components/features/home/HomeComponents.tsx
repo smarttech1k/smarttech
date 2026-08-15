@@ -3,263 +3,67 @@ import { motion } from 'motion/react';
 import {
   Plus,
   MessageSquare,
-  ArrowRight,
-  TrendingUp,
+  Hash,
   Share2,
   CheckCircle,
-  BookOpen,
-  Compass,
-  Award,
-  Terminal,
-  Flame,
   ThumbsUp,
-  Star,
+  UserPlus,
+  Check,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { Badge } from '../../ui/Input';
 import { Avatar } from '../../ui/Avatar';
 import { useNavigate } from 'react-router-dom';
 
-export const HeroSection = ({
-  onExplore,
-  onLearn,
+export const PromptBar = ({
+  onFocus,
+  avatarUrl,
+  fullName,
 }: {
-  onExplore: () => void;
-  onLearn: () => void;
+  onFocus?: () => void;
+  avatarUrl?: string | null;
+  fullName?: string | null;
 }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-gradient-to-br from-sun-primary via-sun-secondary to-[#4C1D95] p-6 text-white shadow-lg shadow-sun-primary/15 sm:p-8"
-    >
-      <div className="relative z-10 max-w-2xl space-y-4">
-        <Badge className="border-white/15 bg-white/15 text-white">
-          Discover. Share. Grow.
-        </Badge>
-
-        <h1 className="font-display text-3xl font-bold leading-[1.08] tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
-          Discover <span className="font-sans font-normal italic text-sun-accent">people</span>, ideas, and{' '}
-          <span className="underline decoration-sun-accent/40 decoration-4 underline-offset-4">
-            skills
-          </span>{' '}
-          you&apos;ll love.
-        </h1>
-
-        <p className="text-white/80 text-sm sm:text-base leading-relaxed font-normal max-w-xl">
-          Follow creators, learn from mentors, and connect with a friendly community that helps you
-          grow. Explore exciting hobbies, learn new skills naturally, and have fun together.
-        </p>
-
-        <div className="flex flex-wrap gap-3 pt-1">
-          <Button
-            variant="ghost"
-            onClick={onExplore}
-            className="border-white bg-white text-sun-primary hover:border-white/90 hover:bg-white/90"
-          >
-            <Compass size={16} />
-            Start Exploring
-          </Button>
-          <button
-            onClick={onLearn}
-            className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15"
-          >
-            <BookOpen size={16} />
-            Find Creators
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-export const PromptBar = ({ onFocus }: { onFocus?: () => void }) => {
   return (
     <div className="relative w-full">
       <div className="rounded-2xl border border-sun-border bg-sun-surface p-3 shadow-sm sm:p-4">
         <div className="flex items-center gap-3">
-          <Avatar src="https://i.pravatar.cc/150?u=me" size="sm" className="ring-2 ring-sun-primary/20" />
+          {/* The signed-in user's own avatar. Avatar falls back to their initials,
+              so there is never a stock photo of a stranger standing in for them. */}
+          <Avatar
+            src={avatarUrl || undefined}
+            name={fullName || undefined}
+            size="sm"
+            className="ring-2 ring-sun-primary/20"
+          />
           <div
             onClick={onFocus}
             className="group flex min-h-11 flex-1 cursor-text items-center justify-between rounded-xl border border-sun-border bg-sun-surface-light px-4 text-sm text-sun-text-muted transition-colors hover:border-sun-primary/30"
           >
-            <span className="group-hover:text-sun-text-main transition-colors">
+            <span className="truncate transition-colors group-hover:text-sun-text-main">
               What are you working on or learning today?
             </span>
-            <div className="flex gap-2 text-sun-primary">
-              <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
-            </div>
+            <Plus size={18} className="shrink-0 text-sun-primary transition-transform duration-300 group-hover:rotate-90" />
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-export const QuickActionCards = ({
-  onSparkClick,
-  onCourseClick,
-  onProjectClick,
-}: {
-  onSparkClick: () => void;
-  onCourseClick: () => void;
-  onProjectClick: () => void;
-}) => {
-  const actions = [
-    {
-      title: 'Watch Sparks',
-      desc: 'Quick ideas, skills, and inspiration in under a minute',
-      icon: <Flame size={20} />,
-      color: 'bg-sun-primary text-white',
-      hoverColor: 'hover:border-sun-primary',
-      onClick: onSparkClick,
-    },
-    {
-      title: 'Explore Creators',
-      desc: 'Follow inspiring creators and trending mentors',
-      icon: <Award size={20} />,
-      color: 'bg-emerald-600 text-white',
-      hoverColor: 'hover:border-emerald-500',
-      onClick: onCourseClick,
-    },
-    {
-      title: 'Popular Lessons',
-      desc: 'Discover fascinating skills and have fun while learning',
-      icon: <Terminal size={20} />,
-      color: 'bg-indigo-600 text-white',
-      hoverColor: 'hover:border-indigo-500',
-      onClick: onProjectClick,
-    },
-  ];
-
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {actions.map((act, idx) => (
-        <div
-          key={idx}
-          onClick={act.onClick}
-          className={`interactive-card group flex cursor-pointer items-center gap-3 p-4 sm:flex-col sm:items-stretch ${act.hoverColor}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className={`rounded-xl p-2.5 ${act.color}`}>{act.icon}</div>
-            <ArrowRight size={16} className="text-sun-text-muted group-hover:text-sun-primary transition-all" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-sun-text-main transition-colors group-hover:text-sun-primary">
-              {act.title}
-            </h4>
-            <p className="mt-1 text-[11px] leading-relaxed text-sun-text-muted">{act.desc}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-export const LearningRecommendations = ({
-  onCourseClick,
-}: {
-  onCourseClick: (id?: string) => void;
-}) => {
-  const courses = [
-    {
-      id: 'c1',
-      category: 'Photography & Video',
-      title: 'Short-Form Magic: Filming & Editing Sparks That Go Viral',
-      mentor: 'Sarah Chen',
-      role: 'Travel Vlogger & Editor',
-      rating: '4.9',
-      students: '2.4k',
-      color: 'border-sun-primary/10',
-      accent: 'text-sun-primary',
-    },
-    {
-      id: 'c2',
-      category: 'Creative Writing',
-      title: 'Storytelling 101: Captivate Your Audience In Under 60 Seconds',
-      mentor: 'Leon Vance',
-      role: 'Creative Director',
-      rating: '4.8',
-      students: '1.8k',
-      color: 'border-emerald-500/10',
-      accent: 'text-emerald-500',
-    },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h3 className="section-title">
-            Creator Picks & Popular Lessons
-          </h3>
-          <p className="text-xs text-sun-text-muted mt-0.5">
-            Handpicked skills from creators worth following
-          </p>
-        </div>
-        <button
-          onClick={() => onCourseClick()}
-          className="flex items-center gap-1 text-xs font-semibold text-sun-primary hover:underline"
-        >
-          View More Lessons
-          <ArrowRight size={12} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {courses.map((course) => (
-          <div
-            key={course.id}
-            onClick={() => onCourseClick(course.id)}
-            className={`interactive-card group cursor-pointer p-5 ${course.color}`}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-sun-bg ${course.accent}`}>
-                {course.category}
-              </span>
-              <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-500">
-                <Star size={12} fill="currentColor" /> {course.rating}
-              </div>
-            </div>
-
-            <h4 className="text-base font-bold text-sun-text-main group-hover:text-sun-primary transition-colors line-clamp-2 leading-relaxed mb-4">
-              {course.title}
-            </h4>
-
-            <div className="flex items-center justify-between pt-4 border-t border-sun-border/40">
-              <div className="flex items-center gap-2">
-                <Avatar src={`https://i.pravatar.cc/150?u=${course.mentor}`} size="sm" />
-                <div>
-                  <p className="text-[11px] font-bold text-sun-text-main">{course.mentor}</p>
-                  <p className="text-[10px] text-sun-text-muted">{course.role}</p>
-                </div>
-              </div>
-              <span className="text-[10px] text-sun-text-muted font-semibold">
-                {course.students} learning
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-export type PostType = 'Recommendation' | 'Idea' | 'SystemUpdate';
 
 export interface PostProps {
   id: string;
-  type: PostType;
   author: {
     id: string;
     name: string;
     handle: string;
-    avatar: string;
+    avatar?: string | null;
     isExpert?: boolean;
-    role: string;
+    // The author's real bio. Absent for most people, and the line is simply
+    // omitted rather than filled with an invented job title.
+    role?: string | null;
   };
   content: string;
-  image?: string;
+  image?: string | null;
   likes: number;
   comments: number;
   time: string;
@@ -281,9 +85,10 @@ export interface PostProps {
   onOpenProfile?: (profileIdOrUsername: string) => void;
 }
 
+const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v)(\?|$)/i;
+
 export const CommunityPost: React.FC<PostProps> = ({
   id,
-  type,
   author,
   content,
   image,
@@ -354,28 +159,9 @@ export const CommunityPost: React.FC<PostProps> = ({
     }
   };
 
-  const typeLabels = {
-    Recommendation: {
-      text: 'Suggested Resource',
-      style: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10',
-    },
-    Idea: {
-      text: 'Startup Idea',
-      style: 'bg-sun-primary/10 text-sun-primary border-sun-primary/10',
-    },
-    SystemUpdate: {
-      text: 'Vibe Check / Update',
-      style: 'bg-indigo-600/10 text-indigo-600 border-indigo-600/10',
-    },
-  };
-
-  const label =
-    typeLabels[type] || {
-      text: 'Community',
-      style: 'bg-slate-500/10 text-slate-600',
-    };
-
   const profileTarget = author.handle || author.id;
+  const isVideo = !!image && VIDEO_EXTENSIONS.test(image);
+  const hiddenCommentCount = Math.max(commentsCount - commentItems.length, 0);
 
   return (
     <motion.div
@@ -384,50 +170,57 @@ export const CommunityPost: React.FC<PostProps> = ({
       viewport={{ once: true, margin: '-80px' }}
       className="rounded-2xl border border-sun-border bg-sun-surface p-5 shadow-sm transition-shadow hover:shadow-premium sm:p-6"
     >
-      <div className="flex items-start justify-between mb-4">
-  <button
-    type="button"
-    onClick={() => onOpenProfile?.(profileTarget)}
-    className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
-  >
-    <Avatar src={author.avatar} size="sm" className="ring-2 ring-sun-primary/10" />
-    <div>
-            <div className="flex items-center gap-1.5">
-              <h4 className="text-sm font-bold text-sun-text-main leading-tight">
-                {author.name}
-              </h4>
-              {author.isExpert && (
-                <CheckCircle size={13} className="text-sun-primary" fill="currentColor" />
-              )}
-            </div>
-            <p className="text-[11px] text-sun-text-muted leading-tight mt-0.5">
-              {author.role} · {time}
-            </p>
+      {/* No category badge: posts carry no type in the database, so labelling
+          every one of them would be inventing a fact about the author's intent. */}
+      <button
+        type="button"
+        onClick={() => onOpenProfile?.(profileTarget)}
+        className="mb-4 flex max-w-full items-center gap-3 text-left transition-opacity hover:opacity-80"
+      >
+        <Avatar src={author.avatar || undefined} name={author.name} size="sm" className="ring-2 ring-sun-primary/10" />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h4 className="truncate text-sm font-bold leading-tight text-sun-text-main">
+              {author.name}
+            </h4>
+            {author.isExpert && (
+              <CheckCircle size={13} className="shrink-0 text-sun-primary" fill="currentColor" />
+            )}
           </div>
-        </button>
-
-        <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${label.style}`}>
-          {label.text}
-        </span>
-      </div>
+          <p className="mt-0.5 truncate text-[11px] leading-tight text-sun-text-muted">
+            {author.handle ? `@${author.handle} · ` : ''}
+            {time}
+          </p>
+          {author.role && (
+            <p className="mt-0.5 truncate text-[11px] leading-tight text-sun-text-muted/80">
+              {author.role}
+            </p>
+          )}
+        </div>
+      </button>
 
       <div className="space-y-4">
-        <p className="text-sm sm:text-base leading-relaxed text-sun-text-main font-normal break-words">
+        <p className="break-words text-sm font-normal leading-relaxed text-sun-text-main sm:text-base">
           {content}
         </p>
 
         {image && (
-          <div className="rounded-xl overflow-hidden border border-sun-border/40 aspect-video relative">
-            <img
-              src={image}
-              className="w-full h-full object-contain bg-black"
-              alt="Community Activity"
-              referrerPolicy="no-referrer"
-            />
+          <div className="relative aspect-video overflow-hidden rounded-xl border border-sun-border/40">
+            {isVideo ? (
+              <video src={image} controls playsInline className="h-full w-full bg-black object-contain" />
+            ) : (
+              <img
+                src={image}
+                className="h-full w-full bg-black object-contain"
+                alt={`Attachment shared by ${author.name}`}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            )}
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-sun-border/30 text-xs">
+        <div className="flex items-center justify-between border-t border-sun-border/30 pt-4 text-xs">
           <div className="flex gap-4">
             <button
               onClick={handleLike}
@@ -437,21 +230,25 @@ export const CommunityPost: React.FC<PostProps> = ({
               } ${isLiking ? 'opacity-60' : ''}`}
             >
               <ThumbsUp size={14} />
-              <span>{likesCount} Likes</span>
+              <span>
+                {likesCount} {likesCount === 1 ? 'Like' : 'Likes'}
+              </span>
             </button>
 
             <button
               onClick={() => setShowCommentBox((prev) => !prev)}
-              className="flex items-center gap-1.5 font-bold text-sun-text-muted hover:text-sun-primary transition-all"
+              className="flex items-center gap-1.5 font-bold text-sun-text-muted transition-all hover:text-sun-primary"
             >
               <MessageSquare size={14} />
-              <span>{commentsCount} Comments</span>
+              <span>
+                {commentsCount} {commentsCount === 1 ? 'Comment' : 'Comments'}
+              </span>
             </button>
           </div>
 
           <button
             onClick={() => navigate(`/messages?shareType=post&shareId=${id}`)}
-            className="text-sun-text-muted hover:text-sun-primary transition-colors p-1"
+            className="p-1 text-sun-text-muted transition-colors hover:text-sun-primary"
             title="Share post in a conversation"
             aria-label="Share post in a conversation"
           >
@@ -460,32 +257,35 @@ export const CommunityPost: React.FC<PostProps> = ({
         </div>
 
         {commentItems.length > 0 && (
-          <div className="pt-3 border-t border-sun-border/30 space-y-3">
+          <div className="space-y-3 border-t border-sun-border/30 pt-3">
+            {hiddenCommentCount > 0 && (
+              <p className="text-[11px] font-semibold text-sun-text-muted">
+                Showing the {commentItems.length} most recent of {commentsCount} comments
+              </p>
+            )}
             {commentItems.map((comment) => (
               <div
                 key={comment.id}
-                className="rounded-xl bg-sun-bg border border-sun-border/40 px-3 py-3"
+                className="rounded-xl border border-sun-border/40 bg-sun-bg px-3 py-3"
               >
                 <div className="flex items-start gap-3">
                   <Avatar
-                    src={
-                      comment.profiles?.avatar_url ||
-                      `https://i.pravatar.cc/150?u=${comment.user_id}`
-                    }
+                    src={comment.profiles?.avatar_url || undefined}
+                    name={comment.profiles?.full_name || comment.profiles?.username || undefined}
                     size="sm"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xs font-bold text-sun-text-main">
                         {comment.profiles?.full_name ||
                           comment.profiles?.username ||
-                          'Unknown User'}
+                          'Korusa member'}
                       </p>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-sun-text-muted">
                         {formatCommentTime(comment.created_at)}
                       </p>
                     </div>
-                    <p className="mt-1 text-sm text-sun-text-main leading-relaxed break-words">
+                    <p className="mt-1 break-words text-sm leading-relaxed text-sun-text-main">
                       {comment.content}
                     </p>
                   </div>
@@ -496,12 +296,12 @@ export const CommunityPost: React.FC<PostProps> = ({
         )}
 
         {showCommentBox && (
-          <div className="pt-3 border-t border-sun-border/30 space-y-3">
+          <div className="space-y-3 border-t border-sun-border/30 pt-3">
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Write a comment..."
-              className="w-full min-h-[90px] bg-sun-bg border border-sun-border rounded-xl p-3 text-sm focus:ring-1 focus:ring-sun-primary outline-none resize-none"
+              className="min-h-[90px] w-full resize-none rounded-xl border border-sun-border bg-sun-bg p-3 text-sm outline-none focus:ring-1 focus:ring-sun-primary"
             />
             <div className="flex justify-end">
               <Button
@@ -537,109 +337,147 @@ function formatCommentTime(dateString: string) {
   return date.toLocaleDateString();
 }
 
-export const CreatorSpotlight = ({
-  creators,
+export type SuggestedPerson = {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  bio?: string | null;
+  follows_you?: boolean;
+};
+
+// Replaces the old "Creator Spotlight", which ranked by signup date and wore a
+// badge asserting the profiles were genuine. These come from get_friend_suggestions
+// and the Follow button actually writes a follow row.
+export const PeopleToFollow = ({
+  people,
+  loading = false,
   onOpenProfile,
+  onFollow,
 }: {
-  creators: Array<{
-    id: string;
-    username: string | null;
-    full_name: string | null;
-    avatar_url: string | null;
-    bio?: string | null;
-  }>;
+  people: SuggestedPerson[];
+  loading?: boolean;
   onOpenProfile: (profileIdOrUsername: string) => void;
+  onFollow: (userId: string) => Promise<void> | void;
 }) => {
+  const [pending, setPending] = useState<string | null>(null);
+  const [followed, setFollowed] = useState<Set<string>>(new Set());
+
+  const handleFollow = async (userId: string) => {
+    if (pending) return;
+    setPending(userId);
+    try {
+      await onFollow(userId);
+      setFollowed((previous) => new Set(previous).add(userId));
+    } finally {
+      setPending(null);
+    }
+  };
+
+  if (!loading && people.length === 0) return null;
+
   return (
     <section className="surface-card space-y-4 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-display text-sm font-semibold text-sun-text-main">
-          Creator Spotlight
-        </h3>
-        <Badge>
-          Real Profiles
-        </Badge>
-      </div>
+      <h3 className="font-display text-sm font-semibold text-sun-text-main">People to follow</h3>
 
-      <div className="space-y-4">
-        {creators.length === 0 ? (
-          <div className="text-xs text-sun-text-muted">
-            No creators available yet.
-          </div>
-        ) : (
-          creators.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => onOpenProfile(c.username || c.id)}
-              className="group flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-sun-surface-light"
-            >
-              <Avatar
-                src={c.avatar_url || `https://i.pravatar.cc/150?u=${c.id}`}
-                size="sm"
-                className="ring-2 ring-sun-primary/20"
-              />
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-bold text-sun-text-main truncate group-hover:text-sun-primary transition-colors">
-                  {c.full_name || c.username || 'Unknown User'}
-                </h4>
-                <p className="text-[10px] text-sun-text-muted truncate mt-0.5">
-                  @{c.username || 'unknown'}
-                </p>
-                {c.bio && (
-                  <p className="text-[9px] text-sun-text-muted truncate mt-1">
-                    {c.bio}
-                  </p>
-                )}
+      <div className="space-y-2">
+        {loading && people.length === 0
+          ? Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-3 p-2.5">
+                <div className="h-8 w-8 animate-pulse rounded-full bg-sun-surface-light" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-2.5 w-24 animate-pulse rounded-full bg-sun-surface-light" />
+                  <div className="h-2 w-16 animate-pulse rounded-full bg-sun-surface-light" />
+                </div>
               </div>
-              <button
-                type="button"
-                className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1.5 bg-sun-primary text-white hover:bg-sun-primary/90 rounded-md transition-colors shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenProfile(c.username || c.id);
-                }}
-              >
-                View
-              </button>
-            </div>
-          ))
-        )}
+            ))
+          : people.map((person) => {
+              const name = person.full_name || person.username || 'Korusa member';
+              const isFollowed = followed.has(person.id);
+              return (
+                <div
+                  key={person.id}
+                  className="group flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-sun-surface-light"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onOpenProfile(person.username || person.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <Avatar src={person.avatar_url || undefined} name={name} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-bold text-sun-text-main transition-colors group-hover:text-sun-primary">
+                        {name}
+                      </span>
+                      {person.username && (
+                        <span className="mt-0.5 block truncate text-[10px] text-sun-text-muted">
+                          @{person.username}
+                        </span>
+                      )}
+                      {/* Only shown when it is a real signal from the database. */}
+                      {person.follows_you && (
+                        <span className="mt-0.5 block text-[10px] font-semibold text-sun-primary">
+                          Follows you
+                        </span>
+                      )}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleFollow(person.id)}
+                    disabled={isFollowed || pending === person.id}
+                    className={`flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[9px] font-black uppercase tracking-wider transition-colors ${
+                      isFollowed
+                        ? 'border border-sun-border text-sun-text-muted'
+                        : 'bg-sun-primary text-white hover:bg-sun-primary/90'
+                    } ${pending === person.id ? 'opacity-60' : ''}`}
+                  >
+                    {isFollowed ? <Check size={11} /> : <UserPlus size={11} />}
+                    {isFollowed ? 'Following' : 'Follow'}
+                  </button>
+                </div>
+              );
+            })}
       </div>
     </section>
   );
 };
 
-export const TrendingDiscussions = () => {
-  const topics = [
-    { title: '#StorytellingSecrets', counts: '1.4k posts', trend: '+24% today' },
-    { title: '#SparksInspiration', counts: '892 posts', trend: '+120% sparks' },
-    { title: '#MindfulCreating', counts: '320 posts', trend: '+5% steady' },
-    { title: '#CreativeTechArt', counts: '432 posts', trend: '+18% yesterday' },
-  ];
+// Real hashtags with real post counts, straight from get_trending_hashtags. No
+// percentage deltas, because a single window cannot honestly produce one - and
+// the whole panel disappears when nobody has tagged anything.
+export const TrendingTags = ({
+  tags,
+  onSelect,
+}: {
+  tags: Array<{ tag: string; postCount: number }>;
+  onSelect: (tag: string) => void;
+}) => {
+  if (tags.length === 0) return null;
 
   return (
-    <section className="surface-card space-y-4 p-5">
+    <section className="surface-card space-y-3 p-5">
       <div className="flex items-center gap-2">
-        <TrendingUp size={16} className="text-sun-primary" />
-        <h3 className="font-display text-sm font-semibold text-sun-text-main">
-          Trending Topics
-        </h3>
+        <Hash size={15} className="text-sun-primary" />
+        <h3 className="font-display text-sm font-semibold text-sun-text-main">Tags this week</h3>
       </div>
 
       <div className="divide-y divide-sun-border/40">
-        {topics.map((t, idx) => (
-          <div
-            key={idx}
-            className="py-2.5 first:pt-0 last:pb-0 hover:bg-sun-bg/40 px-1 rounded transition-colors cursor-pointer group"
+        {tags.map((entry) => (
+          <button
+            key={entry.tag}
+            type="button"
+            onClick={() => onSelect(entry.tag)}
+            className="group flex w-full items-center justify-between gap-3 rounded px-1 py-2.5 text-left transition-colors first:pt-0 last:pb-0 hover:bg-sun-bg/40"
           >
-            <h4 className="text-xs font-bold text-sun-text-main group-hover:text-sun-primary transition-colors">
-              {t.title}
-            </h4>
-            <div className="flex items-center justify-between mt-1 text-[10px]">
-              <span className="text-sun-text-muted font-medium">{t.counts}</span>
-              <span className="text-emerald-500 font-bold">{t.trend}</span>
-            </div>
-          </div>
+            <span className="truncate text-xs font-bold text-sun-text-main transition-colors group-hover:text-sun-primary">
+              #{entry.tag}
+            </span>
+            <span className="shrink-0 text-[10px] font-medium text-sun-text-muted">
+              {entry.postCount} {entry.postCount === 1 ? 'post' : 'posts'}
+            </span>
+          </button>
         ))}
       </div>
     </section>

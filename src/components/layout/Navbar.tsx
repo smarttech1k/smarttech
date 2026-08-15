@@ -1,15 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Bell, Menu, MessageSquare, Moon, Search, Sparkles, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { KorusaLogo } from '../shared/Logo';
 import { useUIStore } from '../../store/uiStore';
+import { fetchMyProfile, type ProfileRef } from '../../lib/feed';
 
 const iconButtonClass = 'relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sun-text-muted transition-colors hover:bg-sun-surface-light hover:text-sun-text-main focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/15';
 
 export const Navbar = () => {
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme, toggleSidebar } = useUIStore();
+  const [profile, setProfile] = useState<ProfileRef | null>(null);
+
+  useEffect(() => {
+    void fetchMyProfile()
+      .then(setProfile)
+      .catch(() => setProfile(null));
+  }, []);
 
   return (
     <header className="nav-blur relative z-[60] h-16 shrink-0 lg:pl-20">
@@ -24,9 +32,11 @@ export const Navbar = () => {
           <button type="button" onClick={toggleTheme} className={iconButtonClass} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>{isDarkMode ? <Sun size={19} /> : <Moon size={19} />}</button>
           <button type="button" onClick={() => navigate('/assistant')} className={`${iconButtonClass} hidden sm:inline-flex`} title="AI assistant" aria-label="Open AI assistant"><Sparkles size={19} /></button>
           <button type="button" onClick={() => navigate('/messages')} className={`${iconButtonClass} hidden sm:inline-flex`} title="Messages" aria-label="Open messages"><MessageSquare size={19} /></button>
-          <button type="button" onClick={() => navigate('/notifications')} className={iconButtonClass} title="Notifications" aria-label="Open notifications"><Bell size={19} /><span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border-2 border-sun-bg bg-red-500" /></button>
+          {/* No unread dot: there is no real notification count to drive it, and a
+              badge that is always lit is a fabricated signal. */}
+          <button type="button" onClick={() => navigate('/notifications')} className={iconButtonClass} title="Notifications" aria-label="Open notifications"><Bell size={19} /></button>
           <div className="mx-1 hidden h-7 w-px bg-sun-border sm:block" />
-          <button type="button" onClick={() => navigate('/profile/me')} className="ml-0.5 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/15" title="Open profile" aria-label="Open profile"><Avatar size="md" src="https://i.pravatar.cc/150?u=me" name="My profile" /></button>
+          <button type="button" onClick={() => navigate('/profile/me')} className="ml-0.5 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/15" title="Open profile" aria-label="Open profile"><Avatar size="md" src={profile?.avatar_url || undefined} name={profile?.full_name || profile?.username || 'My profile'} /></button>
         </nav>
       </div>
     </header>
