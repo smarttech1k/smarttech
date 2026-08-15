@@ -97,6 +97,8 @@ type InboxFilter = 'all' | 'unread' | 'groups' | 'archived' | 'favorites' | 'med
 const TYPING_PING_INTERVAL_MS = 2500;
 const TYPING_IDLE_TIMEOUT_MS = 1400;
 
+const REACTION_EMOJIS = ['❤️', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}', '\u{1F525}', '\u{1F389}'];
+
 const inboxFilters: Array<{ id: InboxFilter; label: string; comingSoon?: boolean }> = [
   { id: 'all', label: 'All' },
   { id: 'unread', label: 'Unread' },
@@ -953,28 +955,37 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                       <React.Fragment key={message.id}>
                         {showDay && <div className="my-5 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sun-text-muted before:h-px before:flex-1 before:bg-sun-border/60 after:h-px after:flex-1 after:bg-sun-border/60"><span>{formatDay(message.created_at)}</span></div>}
                         <div ref={(element) => { if (element) messageRefs.current.set(message.id, element); else messageRefs.current.delete(message.id); }} onContextMenu={(event) => { event.preventDefault(); setMessageMenuId(message.id); }} className={`group relative flex items-center gap-1.5 rounded-2xl transition-all ${highlightedMessageId === message.id ? 'bg-sun-primary/10 ring-4 ring-sun-primary/10' : ''} ${mine ? 'justify-end' : 'justify-start'} ${startsGroup ? 'mt-2' : ''}`}>
-                          <div className={`relative flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 ${mine ? 'order-first' : 'order-last'}`}>
+                          {/* Hover-only affordance, so it is desktop-only: on a phone it
+                              could never be triggered yet still reserved ~90px of every
+                              row's width. Touch uses long-press and swipe instead. */}
+                          <div className={`relative hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 md:flex ${mine ? 'order-first' : 'order-last'}`}>
                             <button type="button" onClick={() => setReplyingTo(message)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-sun-surface text-sun-text-muted shadow-sm hover:text-sun-primary" aria-label="Reply"><Reply size={13} /></button>
                             <button type="button" onClick={() => setReactionMessageId(reactionMessageId === message.id ? null : message.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-sun-surface text-sun-text-muted shadow-sm hover:text-sun-primary" aria-label="React"><SmilePlus size={13} /></button>
                             <button type="button" onClick={() => setMessageMenuId(messageMenuId === message.id ? null : message.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-sun-surface text-sun-text-muted shadow-sm hover:text-sun-primary" aria-label="Message actions"><MoreHorizontal size={13} /></button>
-                            {reactionMessageId === message.id && (
-                              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`absolute bottom-9 z-30 flex gap-1 rounded-full border border-sun-border bg-sun-surface p-1.5 shadow-xl ${mine ? 'right-0' : 'left-0'}`}>
-                                {['❤️', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}', '\u{1F525}', '\u{1F389}'].map((emoji) => <button key={emoji} type="button" onClick={async () => { setReactionMessageId(null); await toggleMessageReaction(message.id, emoji); await patchMessageReactions(message.id); }} className="text-base transition-transform hover:scale-125">{emoji}</button>)}
-                              </motion.div>
-                            )}
-                            {messageMenuId === message.id && (
-                              <div className={`fixed inset-x-3 bottom-3 z-[100] rounded-3xl border border-sun-border bg-sun-surface p-2 text-sun-text-main shadow-2xl md:absolute md:inset-x-auto md:bottom-9 md:w-44 md:rounded-2xl md:p-1.5 ${mine ? 'md:right-0' : 'md:left-0'}`}>
-                                <HeaderMenuButton icon={Copy} label="Copy" onClick={() => { void navigator.clipboard.writeText(message.body); setMessageMenuId(null); }} />
-                                <HeaderMenuButton icon={Reply} label="Reply" onClick={() => { setReplyingTo(message); setMessageMenuId(null); }} />
-                                <HeaderMenuButton icon={CornerUpRight} label="Forward" onClick={() => { setForwardingMessage(message); setForwardTargets([]); setMessageMenuId(null); }} />
-                                <HeaderMenuButton icon={Pin} label={message.pinned_at ? 'Unpin' : 'Pin'} onClick={() => void setMessagePinned(message.id, !message.pinned_at).then(refreshThread)} />
-                                <HeaderMenuButton icon={Sparkles} label="Explain with AI" onClick={() => { setMessageMenuId(null); void runAiAction('explain', message.body); }} />
-                                <HeaderMenuButton icon={Sparkles} label="Translate with AI" onClick={() => { setMessageMenuId(null); void runAiAction('translate', message.body); }} />
-                                {mine && !message.deleted_at && <HeaderMenuButton icon={Pencil} label="Edit" onClick={() => { setEditingMessage(message); setDraft(message.body); setMessageMenuId(null); }} />}
-                                {mine && !message.deleted_at && <HeaderMenuButton icon={Trash2} label="Delete" danger onClick={() => void deleteMessage(message.id).then(refreshThread)} />}
-                              </div>
-                            )}
                           </div>
+                          {/* The picker and the action menu are siblings of the rail rather
+                              than children: a hidden ancestor would take them down with it. */}
+                          {reactionMessageId === message.id && (
+                            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`absolute bottom-full z-30 mb-1 flex gap-1 rounded-full border border-sun-border bg-sun-surface p-1.5 shadow-xl ${mine ? 'right-0' : 'left-0'}`}>
+                              {REACTION_EMOJIS.map((emoji) => <button key={emoji} type="button" onClick={async () => { setReactionMessageId(null); await toggleMessageReaction(message.id, emoji); await patchMessageReactions(message.id); }} className="text-base transition-transform hover:scale-125">{emoji}</button>)}
+                            </motion.div>
+                          )}
+                          {messageMenuId === message.id && (
+                            <div className={`fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-[100] max-h-[80dvh] overflow-y-auto rounded-3xl border border-sun-border bg-sun-surface p-2 text-sun-text-main shadow-2xl md:absolute md:inset-x-auto md:bottom-full md:mb-1 md:max-h-none md:w-44 md:overflow-visible md:rounded-2xl md:p-1.5 ${mine ? 'md:right-0' : 'md:left-0'}`}>
+                              {/* Reactions have no hover rail on touch, so the sheet carries them. */}
+                              <div className="mb-1 flex items-center gap-0.5 border-b border-sun-border px-1 pb-2 md:hidden">
+                                {REACTION_EMOJIS.map((emoji) => <button key={emoji} type="button" onClick={async () => { setMessageMenuId(null); await toggleMessageReaction(message.id, emoji); await patchMessageReactions(message.id); }} className="flex h-11 min-w-0 flex-1 items-center justify-center rounded-full text-lg active:bg-sun-surface-light" aria-label={`React with ${emoji}`}>{emoji}</button>)}
+                              </div>
+                              <HeaderMenuButton icon={Copy} label="Copy" onClick={() => { void navigator.clipboard.writeText(message.body); setMessageMenuId(null); }} />
+                              <HeaderMenuButton icon={Reply} label="Reply" onClick={() => { setReplyingTo(message); setMessageMenuId(null); }} />
+                              <HeaderMenuButton icon={CornerUpRight} label="Forward" onClick={() => { setForwardingMessage(message); setForwardTargets([]); setMessageMenuId(null); }} />
+                              <HeaderMenuButton icon={Pin} label={message.pinned_at ? 'Unpin' : 'Pin'} onClick={() => void setMessagePinned(message.id, !message.pinned_at).then(refreshThread)} />
+                              <HeaderMenuButton icon={Sparkles} label="Explain with AI" onClick={() => { setMessageMenuId(null); void runAiAction('explain', message.body); }} />
+                              <HeaderMenuButton icon={Sparkles} label="Translate with AI" onClick={() => { setMessageMenuId(null); void runAiAction('translate', message.body); }} />
+                              {mine && !message.deleted_at && <HeaderMenuButton icon={Pencil} label="Edit" onClick={() => { setEditingMessage(message); setDraft(message.body); setMessageMenuId(null); }} />}
+                              {mine && !message.deleted_at && <HeaderMenuButton icon={Trash2} label="Delete" danger onClick={() => void deleteMessage(message.id).then(refreshThread)} />}
+                            </div>
+                          )}
                           <motion.div drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.14} onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 72) setReplyingTo(message); }} onPointerDown={() => { longPressTimerRef.current = window.setTimeout(() => setMessageMenuId(message.id), 520); }} onPointerUp={() => { if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current); }} onPointerCancel={() => { if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current); }} initial={{ opacity: 0, y: 5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className={`max-w-[86%] touch-pan-y rounded-[20px] px-4 py-2.5 text-sm shadow-sm sm:max-w-[68%] ${mine ? 'rounded-br-md bg-gradient-to-br from-sun-primary to-sun-secondary text-white shadow-sun-primary/10' : 'rounded-bl-md border border-sun-border/80 bg-sun-surface text-sun-text-main'}`}>
                             {repliedMessage && <button type="button" onClick={() => jumpToMessage(repliedMessage.id)} className={`mb-2 block w-full rounded-xl border-l-2 px-2.5 py-1.5 text-left text-[10px] transition-colors hover:brightness-95 ${mine ? 'border-white/60 bg-white/10 text-white/80' : 'border-sun-primary bg-sun-primary/5 text-sun-text-muted'}`}><span className="font-semibold">{repliedMessage.sender_id === currentUserId ? 'You' : activeConversation.fullName}</span><p className="truncate">{repliedMessage.body}</p></button>}
                             {message.forwarded_from_id && <p className={`mb-1 text-[9px] font-semibold uppercase tracking-wider ${mine ? 'text-white/60' : 'text-sun-primary'}`}>Forwarded</p>}
@@ -1002,7 +1013,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
               )}
             </div>
 
-            <div className="shrink-0 border-t border-sun-border/80 bg-sun-surface/95 p-3 backdrop-blur-xl sm:p-4">
+            {/* Full-screen route with nothing below it, so the composer owns the
+                home-indicator inset itself. */}
+            <div className="shrink-0 border-t border-sun-border/80 bg-sun-surface/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl sm:p-4 sm:pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {pendingShare && <div className="mx-auto mb-2 flex max-w-3xl items-center gap-3 rounded-2xl border border-sun-primary/20 bg-sun-primary/5 p-3"><div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-wider text-sun-primary">Share this post</p><p className="truncate text-xs font-semibold">{pendingShare.body}</p></div><button type="button" onClick={() => setPendingShare(null)} className="composer-tool" aria-label="Cancel sharing"><X size={16} /></button><button type="button" onClick={() => void sendPendingShare()} disabled={sending} className="rounded-xl bg-sun-primary px-3 py-2 text-[10px] font-bold text-white">{sending ? 'Sharing...' : 'Share'}</button></div>}
               {!activeConversation.isFriend && (
                 <div className="mx-auto mb-3 max-w-3xl rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-center text-xs text-amber-700 dark:text-amber-300">
@@ -1141,17 +1154,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
 
       {newChatOpen && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <section className="w-full max-w-md overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
-            <header className="flex items-center justify-between border-b border-sun-border p-5">
+          {/* Bounded to the viewport with the list as the only scroller, so a short
+              or landscape screen never clips the header off the top. */}
+          <section className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+            <header className="flex shrink-0 items-center justify-between border-b border-sun-border p-5">
               <div><h2 id="new-chat-title" className="font-display text-xl font-semibold">New conversation</h2><p className="text-xs text-sun-text-muted">Choose one of your Korusa friends</p></div>
               <button type="button" onClick={() => setNewChatOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Close"><X size={19} /></button>
             </header>
-            <div className="p-4">
-              <div className="relative">
+            <div className="flex min-h-0 flex-col p-4">
+              <div className="relative shrink-0">
                 <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sun-text-muted" />
                 <input autoFocus value={profileQuery} onChange={(event) => setProfileQuery(event.target.value)} placeholder="Search your friends" className="h-11 w-full rounded-xl border border-sun-border bg-sun-surface-light pl-10 pr-4 text-sm outline-none focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10" />
               </div>
-              <div className="mt-3 max-h-80 overflow-y-auto">
+              <div className="mt-3 min-h-0 flex-1 overflow-y-auto sm:max-h-80">
                 {profileSearching ? <div className="flex h-24 items-center justify-center"><Loader2 className="animate-spin text-sun-text-muted" /></div> : profileResults.length === 0 ? (
                   <div className="p-6 text-center">
                     <p className="text-xs text-sun-text-muted">No matching friends found.</p>
@@ -1170,17 +1185,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
       )}
       {forwardingMessage && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <section className="w-full max-w-md overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="forward-title">
-            <header className="flex items-center justify-between border-b border-sun-border p-5">
+          <section className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-sun-border bg-sun-surface shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="forward-title">
+            <header className="flex shrink-0 items-center justify-between border-b border-sun-border p-5">
               <div><h2 id="forward-title" className="font-display text-xl font-semibold">Forward message</h2><p className="text-xs text-sun-text-muted">Choose one or more conversations</p></div>
               <button type="button" onClick={() => { setForwardingMessage(null); setForwardTargets([]); }} className="flex h-9 w-9 items-center justify-center rounded-xl text-sun-text-muted hover:bg-sun-surface-light" aria-label="Cancel forwarding"><X size={19} /></button>
             </header>
-            <div className="p-4">
-              <div className="mb-3 rounded-xl border border-sun-border bg-sun-surface-light p-3">
+            <div className="flex min-h-0 flex-col p-4">
+              <div className="mb-3 shrink-0 rounded-xl border border-sun-border bg-sun-surface-light p-3">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-sun-text-muted">Forwarding</p>
                 <p className="mt-1 line-clamp-2 text-xs">{forwardingMessage.body}</p>
               </div>
-              <div className="max-h-72 overflow-y-auto">
+              {/* The list yields height to the submit button, which must never be the
+                  part that gets clipped off a short screen. */}
+              <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-72">
                 {conversations.filter((item) => item.canSend).length === 0 ? (
                   <p className="p-6 text-center text-xs text-sun-text-muted">No conversations available to forward to.</p>
                 ) : conversations.filter((item) => item.canSend).map((conversation) => {
@@ -1194,7 +1211,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                   );
                 })}
               </div>
-              <button type="button" onClick={() => void submitForward()} disabled={forwarding || forwardTargets.length === 0} className="mt-3 w-full rounded-xl bg-gradient-to-r from-sun-primary to-sun-secondary px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sun-primary/15 disabled:opacity-40">
+              <button type="button" onClick={() => void submitForward()} disabled={forwarding || forwardTargets.length === 0} className="mt-3 w-full shrink-0 rounded-xl bg-gradient-to-r from-sun-primary to-sun-secondary px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sun-primary/15 disabled:opacity-40">
                 {forwarding ? 'Forwarding...' : forwardTargets.length > 1 ? `Forward to ${forwardTargets.length} chats` : 'Forward'}
               </button>
             </div>

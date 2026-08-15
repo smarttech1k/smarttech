@@ -29,7 +29,9 @@ export const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ src, min
   };
 
   return (
-    <div className={`mb-1 min-w-[250px] rounded-2xl p-2.5 ${mine ? 'bg-white/10' : 'bg-sun-surface-light'}`}>
+    // min() caps the floor at the bubble's own width, so a voice note stays wide
+    // enough to scrub on a desktop without overflowing a narrow phone.
+    <div className={`mb-1 min-w-[min(250px,100%)] rounded-2xl p-2.5 ${mine ? 'bg-white/10' : 'bg-sun-surface-light'}`}>
       <audio
         ref={audioRef}
         src={src}

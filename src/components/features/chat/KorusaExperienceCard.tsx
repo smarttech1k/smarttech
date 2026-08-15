@@ -37,7 +37,7 @@ export const KorusaExperienceCard = ({ message, mine = false }: { message: Messa
   const options = Array.isArray(metadata.options) ? metadata.options.filter((item): item is string => typeof item === 'string') : [];
 
   return (
-    <div className={`mb-2 w-full min-w-[250px] max-w-sm overflow-hidden rounded-2xl border text-left shadow-sm ${mine ? 'border-white/20 bg-white/10' : 'border-sun-border bg-sun-surface-light'}`}>
+    <div className={`mb-2 w-full min-w-[min(250px,100%)] max-w-sm overflow-hidden rounded-2xl border text-left shadow-sm ${mine ? 'border-white/20 bg-white/10' : 'border-sun-border bg-sun-surface-light'}`}>
       <div className={`h-1.5 bg-gradient-to-r ${config.gradient}`} />
       <div className="p-3.5">
         <div className="flex items-start gap-3">
