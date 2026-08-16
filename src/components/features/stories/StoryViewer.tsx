@@ -159,6 +159,17 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
     });
   }, [paused, activeStory]);
 
+  // The overlay covers the page, so the feed behind it must stop scrolling -
+  // otherwise a drag over the story scrolls the list underneath and the page
+  // keeps its scrollbar alongside a supposedly full-screen viewer.
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -228,63 +239,233 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
   const isMine = activeGroup.isMine;
 
   return (
-    <div className="fixed inset-0 z-[100] flex h-dvh flex-col bg-black">
-      <div
-        className="relative flex min-h-0 flex-1 items-center justify-center"
-        onPointerDown={beginHold}
-        onPointerUp={endHold}
-        onPointerCancel={endHold}
-        onPointerLeave={endHold}
-      >
-        {/* Media */}
-        {activeStory.mediaUrl ? (
-          activeStory.mediaType === 'video' ? (
-            <video
-              ref={videoRef}
-              key={activeStory.id}
-              src={activeStory.mediaUrl}
-              className="h-full w-full object-contain"
-              playsInline
-              muted={muted}
-              onTimeUpdate={(event) => {
-                const element = event.currentTarget;
-                if (element.duration > 0) setProgress(element.currentTime / element.duration);
-              }}
-              onEnded={() => advance(1)}
-            />
-          ) : (
-            <img
-              key={activeStory.id}
-              src={activeStory.mediaUrl}
-              alt={activeStory.caption || `Story by ${authorName}`}
-              className="h-full w-full object-contain"
-            />
-          )
-        ) : (
-          <p className="px-8 text-center text-sm font-medium text-white/70">
-            This story could not be loaded.
-          </p>
-        )}
+    <div className="fixed inset-0 z-[100] flex h-dvh items-center justify-center bg-black md:px-16">
+      {/* md:px-16 above reserves room for the arrows that sit outside the card.
+          Without it the card - whose width is derived from its height - grows until
+          max-w-full stops it at the viewport edge, clipping the arrows on a tall
+          window.
 
-        {/* Tap zones: back on the left third, forward on the rest. */}
-        <button
-          type="button"
-          onClick={handleZone(-1)}
-          className="absolute inset-y-0 left-0 w-1/3 cursor-default focus-visible:outline-none"
-          aria-label="Previous story"
-        />
-        <button
-          type="button"
-          onClick={handleZone(1)}
-          className="absolute inset-y-0 right-0 w-2/3 cursor-default focus-visible:outline-none"
-          aria-label="Next story"
-        />
+          The dead space around the card is a way out, not a navigation target.
+          On a phone the card is full bleed, so there is no dead space to hit. */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default focus-visible:outline-none"
+        aria-label="Close stories"
+      />
 
-        {/* Desktop arrows, since a click target with no cursor affordance is easy to miss. */}
+      {/* Full bleed on a phone; a 9:16 card from sm up, because a story is a
+          portrait medium and a landscape clip stretched across a desktop window
+          reads as a video player instead. w-auto lets the aspect ratio derive the
+          width from the height; max-w-full keeps a short, wide window honest. */}
+      <div className="relative z-10 flex h-full w-full items-center justify-center sm:aspect-[9/16] sm:h-[92dvh] sm:w-auto sm:max-w-full">
+        {/* Chrome is positioned against this card rather than the viewport, so the
+            author, progress bars and caption stay on the story instead of drifting
+            into the letterbox gutters on a wide screen. */}
+        <div
+          className="relative h-full w-full overflow-hidden bg-neutral-950 sm:rounded-2xl"
+          onPointerDown={beginHold}
+          onPointerUp={endHold}
+          onPointerCancel={endHold}
+          onPointerLeave={endHold}
+        >
+          {/* Fill behind media that is not 9:16, so a landscape clip does not sit in
+              a slab of dead black. A scaled, heavily blurred copy of the same source
+              reads as depth instead of emptiness. For video this is a second element
+              that is deliberately never played: with preload="auto" it paints its
+              first frame and holds there, so nothing decodes twice. No canvas, which
+              would need crossOrigin on a signed URL and break the slide outright if
+              storage ever stopped sending CORS headers. */}
+          {activeStory.mediaUrl && (
+            <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+              {activeStory.mediaType === 'video' ? (
+                <video
+                  key={`backdrop-${activeStory.id}`}
+                  src={activeStory.mediaUrl}
+                  className="h-full w-full scale-125 object-cover blur-2xl"
+                  preload="auto"
+                  muted
+                  playsInline
+                  tabIndex={-1}
+                />
+              ) : (
+                <div
+                  className="h-full w-full scale-125 bg-cover bg-center blur-2xl"
+                  style={{ backgroundImage: `url("${activeStory.mediaUrl}")` }}
+                />
+              )}
+              {/* Keeps the header, caption and controls legible over a bright fill. */}
+              <div className="absolute inset-0 bg-black/40" />
+            </div>
+          )}
+
+          <div className="absolute inset-0 flex items-center justify-center">
+            {activeStory.mediaUrl ? (
+              activeStory.mediaType === 'video' ? (
+                <video
+                  ref={videoRef}
+                  key={activeStory.id}
+                  src={activeStory.mediaUrl}
+                  className="h-full w-full object-contain"
+                  playsInline
+                  muted={muted}
+                  onTimeUpdate={(event) => {
+                    const element = event.currentTarget;
+                    if (element.duration > 0) setProgress(element.currentTime / element.duration);
+                  }}
+                  onEnded={() => advance(1)}
+                />
+              ) : (
+                <img
+                  key={activeStory.id}
+                  src={activeStory.mediaUrl}
+                  alt={activeStory.caption || `Story by ${authorName}`}
+                  className="h-full w-full object-contain"
+                />
+              )
+            ) : (
+              <p className="px-8 text-center text-sm font-medium text-white/70">
+                This story could not be loaded.
+              </p>
+            )}
+          </div>
+
+          {/* Tap zones: back on the left third of the card, forward on the rest. */}
+          <button
+            type="button"
+            onClick={handleZone(-1)}
+            className="absolute inset-y-0 left-0 w-1/3 cursor-default focus-visible:outline-none"
+            aria-label="Previous story"
+          />
+          <button
+            type="button"
+            onClick={handleZone(1)}
+            className="absolute inset-y-0 right-0 w-2/3 cursor-default focus-visible:outline-none"
+            aria-label="Next story"
+          />
+
+          {/* Header: progress segments, author, controls. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent pb-10 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+            <div className="flex gap-1 px-3">
+              {activeGroup.stories.map((story, index) => (
+                <div key={story.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/30">
+                  <div
+                    className="h-full rounded-full bg-white"
+                    style={{
+                      width:
+                        index < cursor.story
+                          ? '100%'
+                          : index === cursor.story
+                            ? `${Math.round(progress * 100)}%`
+                            : '0%',
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="pointer-events-auto mt-3 flex items-center gap-3 px-3">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate(`/profile/${activeGroup.username || activeGroup.userId}`);
+                }}
+                className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+              >
+                <Avatar src={activeGroup.avatarUrl || undefined} name={authorName} size="md" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold text-white">{authorName}</span>
+                  <span className="block text-[11px] text-white/70">
+                    {formatStoryTime(activeStory.createdAt)}
+                  </span>
+                </span>
+              </button>
+
+              {activeStory.mediaType === 'video' && (
+                <button
+                  type="button"
+                  onClick={() => setMuted((previous) => !previous)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                  aria-label={muted ? 'Unmute story' : 'Mute story'}
+                >
+                  {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                aria-label="Close stories"
+              >
+                <X size={17} />
+              </button>
+            </div>
+          </div>
+
+          {/* Footer: caption, plus the author's own view count and delete control. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-12">
+            {activeStory.caption && (
+              <p className="mb-3 max-h-24 overflow-y-auto text-sm leading-relaxed text-white">
+                {activeStory.caption}
+              </p>
+            )}
+
+            {isMine && (
+              <div className="pointer-events-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void openViewers()}
+                  className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-xs font-bold text-white transition-colors hover:bg-white/20"
+                >
+                  <Eye size={15} />
+                  {activeStory.viewCount} {activeStory.viewCount === 1 ? 'view' : 'views'}
+                </button>
+
+                {confirmDelete ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete()}
+                      disabled={deleting}
+                      className="flex h-10 items-center gap-2 rounded-full bg-red-500 px-4 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    >
+                      {deleting && <Loader2 size={14} className="animate-spin" />}
+                      Delete story
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex h-10 items-center rounded-full bg-white/10 px-4 text-xs font-bold text-white transition-colors hover:bg-white/20"
+                    >
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDelete(true);
+                      setPaused(true);
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                    aria-label="Delete this story"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop arrows sit just outside the card, so they never cover the media
+            and never land halfway across an empty screen. */}
         <button
           type="button"
           onClick={() => advance(-1)}
-          className="absolute left-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 md:flex"
+          className="absolute -left-14 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 md:flex"
           aria-label="Previous story"
         >
           <ChevronLeft size={20} />
@@ -292,130 +473,15 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
         <button
           type="button"
           onClick={() => advance(1)}
-          className="absolute right-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 md:flex"
+          className="absolute -right-14 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 md:flex"
           aria-label="Next story"
         >
           <ChevronRight size={20} />
         </button>
-
-        {/* Header: progress segments, author, controls. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent pb-10 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-          <div className="flex gap-1 px-3">
-            {activeGroup.stories.map((story, index) => (
-              <div key={story.id} className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/30">
-                <div
-                  className="h-full rounded-full bg-white"
-                  style={{
-                    width:
-                      index < cursor.story
-                        ? '100%'
-                        : index === cursor.story
-                          ? `${Math.round(progress * 100)}%`
-                          : '0%',
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="pointer-events-auto mt-3 flex items-center gap-3 px-3">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                navigate(`/profile/${activeGroup.username || activeGroup.userId}`);
-              }}
-              className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-            >
-              <Avatar src={activeGroup.avatarUrl || undefined} name={authorName} size="md" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-white">{authorName}</span>
-                <span className="block text-[11px] text-white/70">
-                  {formatStoryTime(activeStory.createdAt)}
-                </span>
-              </span>
-            </button>
-
-            {activeStory.mediaType === 'video' && (
-              <button
-                type="button"
-                onClick={() => setMuted((previous) => !previous)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                aria-label={muted ? 'Unmute story' : 'Mute story'}
-              >
-                {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-              aria-label="Close stories"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Footer: caption, plus the author's own view count and delete control. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-12">
-          {activeStory.caption && (
-            <p className="mb-3 max-h-24 overflow-y-auto text-sm leading-relaxed text-white">
-              {activeStory.caption}
-            </p>
-          )}
-
-          {isMine && (
-            <div className="pointer-events-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void openViewers()}
-                className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-xs font-bold text-white transition-colors hover:bg-white/20"
-              >
-                <Eye size={15} />
-                {activeStory.viewCount} {activeStory.viewCount === 1 ? 'view' : 'views'}
-              </button>
-
-              {confirmDelete ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete()}
-                    disabled={deleting}
-                    className="flex h-10 items-center gap-2 rounded-full bg-red-500 px-4 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {deleting && <Loader2 size={14} className="animate-spin" />}
-                    Delete story
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(false)}
-                    className="flex h-10 items-center rounded-full bg-white/10 px-4 text-xs font-bold text-white transition-colors hover:bg-white/20"
-                  >
-                    Keep
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConfirmDelete(true);
-                    setPaused(true);
-                  }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                  aria-label="Delete this story"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
       {showViewers && (
-        <div className="absolute inset-0 z-10 flex items-end bg-black/60 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:items-center sm:justify-center">
+        <div className="absolute inset-0 z-20 flex items-end bg-black/60 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:items-center sm:justify-center">
           <section className="flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-sun-border bg-sun-surface">
             <header className="flex shrink-0 items-center justify-between border-b border-sun-border px-5 py-4">
               <h3 className="text-sm font-bold text-sun-text-main">
