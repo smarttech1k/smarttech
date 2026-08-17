@@ -66,6 +66,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
   const [coverPositionY, setCoverPositionY] = useState(50);
   const [coverZoom, setCoverZoom] = useState(1);
   const [coverStoryOpen, setCoverStoryOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostRecord | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -152,7 +153,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
     }
   };
 
-  useEffect(() => { void loadProfileData(); }, [id]);
+  // setPhotoOpen(false) on the way in: without it, opening the photo and then
+  // navigating to another member left the previous person's picture on screen.
+  useEffect(() => { setPhotoOpen(false); void loadProfileData(); }, [id]);
+  useEffect(() => {
+    if (!photoOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setPhotoOpen(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [photoOpen]);
   useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
 
   const handleBack = () => {
@@ -430,15 +439,33 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
               <div className="px-5 pb-6 sm:px-8 sm:pb-8">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                   <div className="-mt-12 flex min-w-0 flex-col items-center gap-4 sm:-mt-16 sm:flex-row sm:items-end">
-                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[1.65rem] border-4 border-sun-surface bg-sun-surface shadow-lg sm:h-32 sm:w-32 sm:rounded-[2rem]">
+                    {/* The photo is the control, not decoration: it was a plain div,
+                        so tapping it did nothing while the cover directly above it
+                        opened. With no photo set it sends the owner to settings to add
+                        one rather than opening an empty viewer. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (profile?.avatar_url) setPhotoOpen(true);
+                        else if (isOwnProfile) onSettingsClick?.();
+                      }}
+                      disabled={!profile?.avatar_url && !isOwnProfile}
+                      aria-label={profile?.avatar_url ? 'View profile photo' : isOwnProfile ? 'Add a profile photo' : 'No profile photo'}
+                      className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-[1.65rem] border-4 border-sun-surface bg-sun-surface shadow-lg transition-transform focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/25 active:scale-[0.98] disabled:active:scale-100 sm:h-32 sm:w-32 sm:rounded-[2rem]"
+                    >
                       {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt={profile.full_name || profile.username || 'Profile'} className="h-full w-full object-cover" />
+                        <>
+                          <img src={profile.avatar_url} alt={profile.full_name || profile.username || 'Profile'} className="h-full w-full object-cover" />
+                          <span className="absolute inset-0 hidden items-center justify-center bg-black/35 text-white opacity-0 transition-opacity group-hover:opacity-100 sm:flex">
+                            <ImageIcon size={22} />
+                          </span>
+                        </>
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-sun-primary/10 font-display text-2xl font-semibold text-sun-primary">
                           {(profile?.full_name || profile?.username || 'K').slice(0, 2).toUpperCase()}
                         </div>
                       )}
-                    </div>
+                    </button>
                     <div className="min-w-0 pb-1 text-center sm:text-left">
                       <h1 className="truncate font-display text-2xl font-semibold tracking-tight sm:text-3xl">{profile?.full_name || profile?.username || 'Korusa member'}</h1>
                       <p className="mt-1 text-sm font-medium text-sun-primary">@{profile?.username || 'member'}</p>
@@ -587,6 +614,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
                 {profile?.cover_description || 'No cover description has been added.'}
               </p>
             </div>
+          </section>
+        </div>
+      )}
+
+      {photoOpen && profile?.avatar_url && (
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Profile photo"
+          onClick={() => setPhotoOpen(false)}
+        >
+          {/* stopPropagation so only the backdrop closes it - tapping the picture
+              itself on a phone should not dismiss what you just opened. */}
+          <section
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-black shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{profile.full_name || profile.username || 'Korusa member'}</p>
+                <p className="text-xs text-white/60">Profile photo</p>
+              </div>
+              <button type="button" onClick={() => setPhotoOpen(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Close photo"><X size={19} /></button>
+            </div>
+            {/* object-contain and a dvh cap: the header crops this picture to a
+                square, and the point of opening it is to see the whole thing. */}
+            <img
+              src={profile.avatar_url}
+              alt={profile.full_name || profile.username || 'Profile photo'}
+              className="max-h-[70dvh] w-full bg-black object-contain"
+            />
+            {isOwnProfile && (
+              <div className="bg-sun-surface p-4">
+                <Button size="sm" variant="secondary" onClick={() => { setPhotoOpen(false); onSettingsClick?.(); }} icon={<Camera size={16} />}>Change photo</Button>
+              </div>
+            )}
           </section>
         </div>
       )}
