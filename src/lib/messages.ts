@@ -27,7 +27,7 @@ export type MessageRow = {
   body: string;
   created_at: string;
   edited_at: string | null;
-  message_type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'post' | 'course' | 'gif' | 'sticker' | 'poll' | 'event' | 'announcement' | 'system' | 'study_session' | 'study_room' | 'whiteboard' | 'consultation' | 'progress' | 'quiz' | 'mentor_booking' | 'voice_room' | 'tip';
+  message_type: 'text' | 'image' | 'video' | 'voice' | 'file' | 'location' | 'post' | 'course' | 'gif' | 'sticker' | 'poll' | 'event' | 'announcement' | 'system' | 'study_session' | 'study_room' | 'whiteboard' | 'consultation' | 'progress' | 'quiz' | 'mentor_booking' | 'voice_room' | 'tip' | 'story_reply';
   media_url: string | null;
   media_name: string | null;
   media_size: number | null;

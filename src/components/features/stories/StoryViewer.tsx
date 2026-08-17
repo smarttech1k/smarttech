@@ -1,21 +1,28 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Eye,
   Loader2,
+  Send,
+  SmilePlus,
   Trash2,
   Volume2,
   VolumeX,
   X,
 } from 'lucide-react';
 import { Avatar } from '../../ui/Avatar';
+import { REACTION_EMOJIS } from '../../../lib/reactions';
 import {
   STORY_IMAGE_DURATION_MS,
   deleteStory,
+  getStoryInsights,
   getStoryViewers,
   markStoryViewed,
+  sendStoryReply,
+  setStoryReaction,
   type StoryGroup,
   type StoryViewer,
 } from '../../../lib/stories';
@@ -26,17 +33,24 @@ interface StoryViewerProps {
   onClose: () => void;
   // Fired after a story is recorded as seen, so the rail can drop its unseen ring.
   onViewed: (storyId: string) => void;
+  // Fired after a reaction is saved, so the rail keeps the emoji lit if the viewer
+  // closes and reopens without a reload.
+  onReacted: (storyId: string, emoji: string | null) => void;
   onDeleted: () => void;
 }
 
 // How long a press has to be held before it counts as "pause" rather than a tap.
 const HOLD_TO_PAUSE_MS = 250;
 
+// Below this the shrink is a browser toolbar, not a keyboard.
+const KEYBOARD_MIN_INSET_PX = 60;
+
 export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
   groups,
   startGroupIndex,
   onClose,
   onViewed,
+  onReacted,
   onDeleted,
 }) => {
   const navigate = useNavigate();
@@ -45,9 +59,19 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
+  const [insights, setInsights] = useState<{ viewCount: number; reactionCount: number } | null>(null);
   const [showViewers, setShowViewers] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const [myReaction, setMyReaction] = useState<string | null>(null);
+  const [showReactionRail, setShowReactionRail] = useState(false);
+  const [reacting, setReacting] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [replySent, setReplySent] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const elapsedRef = useRef(0);
@@ -97,13 +121,69 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
   );
 
   // A cursor move is a fresh slide: reset the clock and collapse any open panels.
+  // The viewer list and counts are cleared too, so the previous story's audience
+  // cannot flash under the next story's heading before its own data arrives - and
+  // so are the draft, the emoji rail and any error, which belong to the story they
+  // were written against and would otherwise carry over to the next one.
   useEffect(() => {
     elapsedRef.current = 0;
     setProgress(0);
     setPaused(false);
     setShowViewers(false);
     setConfirmDelete(false);
+    setViewers(null);
+    setInsights(null);
+    setShowReactionRail(false);
+    setDraft('');
+    setReplySent(false);
+    setActionError(null);
   }, [cursor.group, cursor.story]);
+
+  // The lit emoji comes from the rail's snapshot, then from whatever the server
+  // last confirmed. Reading it into state rather than off the prop directly lets a
+  // tap update immediately while still re-syncing when the rail patch flows back.
+  useEffect(() => {
+    setMyReaction(activeStory?.myReaction ?? null);
+  }, [activeStory?.id, activeStory?.myReaction]);
+
+  // Your own slide asks for its live totals, because the numbers that travelled
+  // with the rail were taken before anyone had watched or reacted. Only the author
+  // can read these, and only their own stories show them at all.
+  useEffect(() => {
+    if (!activeStory || !activeGroup?.isMine) return;
+    let active = true;
+    void getStoryInsights(activeStory.id)
+      .then((result) => {
+        if (active && result) setInsights(result);
+      })
+      // Falling back to the rail's snapshot beats showing nothing.
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [activeStory, activeGroup?.isMine]);
+
+  // The viewport meta in index.html has no interactive-widget, so the default
+  // resizes-visual applies: the on-screen keyboard does not shrink the layout
+  // viewport, and this footer - bottom-anchored inside an h-dvh overlay - ends up
+  // behind it. Measuring the gap the keyboard occupies and lifting the footer by it
+  // fixes the viewer without touching the global meta tag, which the chat composer
+  // was already tuned against.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => {
+      const gap = window.innerHeight - viewport.height - viewport.offsetTop;
+      setKeyboardInset(gap > KEYBOARD_MIN_INSET_PX ? gap : 0);
+    };
+    update();
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+    return () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    };
+  }, []);
 
   // Record the view once per story per session; the rail reads the result to
   // decide whether the author's ring is still highlighted.
@@ -172,6 +252,15 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // Typing in the reply field must not drive the story. Space in particular is
+      // both the pause shortcut and preventDefault'ed below, which would make it
+      // impossible to type a space in a reply.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        // Escape leaves the field rather than closing the whole viewer.
+        if (event.key === 'Escape') target.blur();
+        return;
+      }
       if (event.key === 'Escape') onClose();
       else if (event.key === 'ArrowRight') advance(1);
       else if (event.key === 'ArrowLeft') advance(-1);
@@ -215,9 +304,59 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
     setShowViewers(true);
     setPaused(true);
     try {
-      setViewers(await getStoryViewers(activeStory.id));
+      const [list, live] = await Promise.all([
+        getStoryViewers(activeStory.id),
+        // Refreshed alongside the list rather than derived from its length: the
+        // list is a union of watchers and reactors, so counting its rows would
+        // overstate the views by anyone who reacted without a view row.
+        getStoryInsights(activeStory.id).catch(() => null),
+      ]);
+      setViewers(list);
+      if (live) setInsights(live);
     } catch {
       setViewers([]);
+    }
+  };
+
+  const handleReaction = async (emoji: string) => {
+    if (!activeStory || reacting) return;
+    setReacting(true);
+    setActionError(null);
+    try {
+      // The server answers with the emoji now in effect, or null once cleared, so
+      // the lit state is never an optimistic guess.
+      const next = await setStoryReaction(activeStory.id, emoji);
+      setMyReaction(next);
+      onReacted(activeStory.id, next);
+      setShowReactionRail(false);
+      // The rail paused the slide so the choice was unhurried; the choice is made
+      // now, so let it run again - unless a reply is half-written underneath.
+      setPaused(!!draft.trim());
+    } catch (error) {
+      setActionError(readableStoryError(error, 'Could not save your reaction.'));
+    } finally {
+      setReacting(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!activeStory || sending) return;
+    const body = draft.trim();
+    if (!body) return;
+    setSending(true);
+    setActionError(null);
+    try {
+      await sendStoryReply(activeStory.id, body);
+      setDraft('');
+      // Confirmation rather than an echo of the message: the conversation itself
+      // lives in Messages, not in the viewer. Nothing is being composed any more,
+      // so the slide resumes.
+      setReplySent(true);
+      setPaused(false);
+    } catch (error) {
+      setActionError(readableStoryError(error, 'Could not send your reply.'));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -236,7 +375,12 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
   if (!activeGroup || !activeStory) return null;
 
   const authorName = activeGroup.fullName || activeGroup.username || 'Korusa member';
+  // Placeholders and confirmations read better with just the first name.
+  const authorFirstName = authorName.split(' ')[0];
   const isMine = activeGroup.isMine;
+  // The live totals once they arrive, the rail's snapshot until then.
+  const viewCount = insights?.viewCount ?? activeStory.viewCount;
+  const reactionCount = insights?.reactionCount ?? activeStory.reactionCount;
 
   return (
     <div className="fixed inset-0 z-[100] flex h-dvh items-center justify-center bg-black md:px-16">
@@ -404,23 +548,37 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
             </div>
           </div>
 
-          {/* Footer: caption, plus the author's own view count and delete control. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-12">
+          {/* Footer: caption, then either the author's own numbers and delete
+              control, or - on someone else's story - the reaction rail and reply
+              box. Lifted by keyboardInset so the input is not left under the
+              on-screen keyboard. */}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-12 transition-transform duration-150"
+            style={keyboardInset ? { transform: `translateY(-${keyboardInset}px)` } : undefined}
+          >
             {activeStory.caption && (
               <p className="mb-3 max-h-24 overflow-y-auto text-sm leading-relaxed text-white">
                 {activeStory.caption}
               </p>
             )}
 
-            {isMine && (
+            {isMine ? (
               <div className="pointer-events-auto flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => void openViewers()}
                   className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-xs font-bold text-white transition-colors hover:bg-white/20"
+                  aria-label={`${viewCount} ${viewCount === 1 ? 'view' : 'views'}, ${reactionCount} ${
+                    reactionCount === 1 ? 'reaction' : 'reactions'
+                  }. Open the list.`}
                 >
                   <Eye size={15} />
-                  {activeStory.viewCount} {activeStory.viewCount === 1 ? 'view' : 'views'}
+                  <span>{viewCount}</span>
+                  {/* A neutral icon, not a heart: the reactions themselves vary, and
+                      one emoji standing in for all of them would misreport them. */}
+                  <span className="h-4 w-px bg-white/25" aria-hidden="true" />
+                  <SmilePlus size={15} />
+                  <span>{reactionCount}</span>
                 </button>
 
                 {confirmDelete ? (
@@ -436,7 +594,11 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setConfirmDelete(false)}
+                      onClick={() => {
+                        setConfirmDelete(false);
+                        // Confirming paused the slide; declining has to release it.
+                        setPaused(false);
+                      }}
                       className="flex h-10 items-center rounded-full bg-white/10 px-4 text-xs font-bold text-white transition-colors hover:bg-white/20"
                     >
                       Keep
@@ -455,6 +617,97 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
                     <Trash2 size={16} />
                   </button>
                 )}
+              </div>
+            ) : (
+              <div
+                className="pointer-events-auto"
+                // The hold-to-pause handlers are bound to the card wrapper, so
+                // without this every tap in here starts the pause timer and typing
+                // flickers the story underneath.
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                {actionError && (
+                  <p className="mb-2 rounded-2xl bg-red-500/90 px-3 py-2 text-[11px] font-semibold text-white">
+                    {actionError}
+                  </p>
+                )}
+
+                {showReactionRail && (
+                  <div className="mb-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1.5 backdrop-blur">
+                    {REACTION_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => void handleReaction(emoji)}
+                        disabled={reacting}
+                        className={`flex h-9 min-w-0 flex-1 items-center justify-center rounded-full text-lg transition-transform hover:scale-110 disabled:opacity-50 ${
+                          myReaction === emoji ? 'bg-white/25' : ''
+                        }`}
+                        aria-label={myReaction === emoji ? `Remove ${emoji}` : `React with ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const opening = !showReactionRail;
+                      setShowReactionRail(opening);
+                      // Opening holds the slide so the choice is unhurried;
+                      // closing lets it run again, unless a reply is half-written.
+                      setPaused(opening || !!draft.trim());
+                    }}
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg text-white transition-colors ${
+                      myReaction ? 'bg-white/25' : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                    aria-label={myReaction ? 'Change your reaction' : 'React to this story'}
+                    aria-expanded={showReactionRail}
+                  >
+                    {myReaction ?? <SmilePlus size={18} />}
+                  </button>
+
+                  {replySent ? (
+                    <p className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-white/10 px-4 text-xs font-bold text-white">
+                      <Check size={15} className="shrink-0" />
+                      <span className="truncate">Sent to {authorFirstName}</span>
+                    </p>
+                  ) : (
+                    <>
+                      <input
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onFocus={() => setPaused(true)}
+                        // Only resume once there is nothing half-written: a slide
+                        // that advanced under an unsent reply would discard it.
+                        onBlur={() => {
+                          if (!draft.trim()) setPaused(false);
+                        }}
+                        onKeyDown={(event) => {
+                          // Arrows and space belong to the field, not the story.
+                          event.stopPropagation();
+                          if (event.key === 'Enter') void handleSendReply();
+                        }}
+                        placeholder={`Reply to ${authorFirstName}…`}
+                        maxLength={4000}
+                        className="h-11 min-w-0 flex-1 rounded-full border border-white/25 bg-black/50 px-4 text-sm text-white outline-none transition-colors placeholder:text-white/50 focus:border-white/60"
+                        aria-label={`Reply privately to ${authorName}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleSendReply()}
+                        disabled={!draft.trim() || sending}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+                        aria-label="Send reply"
+                      >
+                        {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -484,8 +737,10 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
         <div className="absolute inset-0 z-20 flex items-end bg-black/60 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:items-center sm:justify-center">
           <section className="flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-sun-border bg-sun-surface">
             <header className="flex shrink-0 items-center justify-between border-b border-sun-border px-5 py-4">
+              {/* Not "Viewed by": the list is a union of watchers and reactors, so a
+                  reaction with no recorded view still belongs in it. */}
               <h3 className="text-sm font-bold text-sun-text-main">
-                Viewed by {viewers ? viewers.length : ''}
+                Views and reactions{viewers ? ` · ${viewers.length}` : ''}
               </h3>
               <button
                 type="button"
@@ -530,8 +785,14 @@ export const StoryViewerOverlay: React.FC<StoryViewerProps> = ({
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-[10px] text-sun-text-muted">
-                      {formatStoryTime(viewer.viewedAt)}
+                    <span className="flex shrink-0 items-center gap-2 text-[10px] text-sun-text-muted">
+                      {viewer.reaction && (
+                        <span className="text-base leading-none" aria-label={`Reacted ${viewer.reaction}`}>
+                          {viewer.reaction}
+                        </span>
+                      )}
+                      {/* Null for someone who reacted without a view row on record. */}
+                      {viewer.viewedAt ? formatStoryTime(viewer.viewedAt) : 'Reacted'}
                     </span>
                   </button>
                 ))
@@ -551,4 +812,24 @@ function formatStoryTime(value: string) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+// The reply and reaction RPCs raise on purpose, and some of those refusals are
+// things the user can act on - especially the turn rule, which is not a failure at
+// all. Matched on the message text because PostgREST surfaces a raise as a message
+// rather than a code, and a Postgrest error is a plain object, not an Error.
+function readableStoryError(error: unknown, fallback: string) {
+  const message =
+    typeof error === 'object' && error !== null && typeof (error as { message?: unknown }).message === 'string'
+      ? (error as { message: string }).message
+      : '';
+
+  if (/waiting for a reply/i.test(message)) {
+    return 'You have already replied. Wait for a response before sending another.';
+  }
+  if (/story not found/i.test(message)) return 'This story is no longer available.';
+  if (/too long/i.test(message)) return 'That reply is too long.';
+  if (/own story/i.test(message)) return 'This is your own story.';
+  if (/authentication required/i.test(message)) return 'Sign in again to reply.';
+  return fallback;
 }

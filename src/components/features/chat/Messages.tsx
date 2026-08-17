@@ -52,11 +52,13 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Avatar } from '../../ui/Avatar';
 import { RichContentCard } from './RichContentCard';
+import { StoryReplyCard } from './StoryReplyCard';
 import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 import { KorusaLogo } from '../../shared/Logo';
 import { isKorusaExperience, KorusaExperienceCard } from './KorusaExperienceCard';
 import type { KorusaToolDraft } from './KorusaToolsMenu';
 import { runMessagingAi, type MessagingAiAction } from '../../../lib/messagingAi';
+import { REACTION_EMOJIS } from '../../../lib/reactions';
 import { supabase } from '../../../lib/supabase';
 import {
   ConversationSummary,
@@ -96,8 +98,6 @@ type InboxFilter = 'all' | 'unread' | 'groups' | 'archived' | 'favorites' | 'med
 // once the draft has been idle for longer than a natural pause between words.
 const TYPING_PING_INTERVAL_MS = 2500;
 const TYPING_IDLE_TIMEOUT_MS = 1400;
-
-const REACTION_EMOJIS = ['❤️', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}', '\u{1F525}', '\u{1F389}'];
 
 const inboxFilters: Array<{ id: InboxFilter; label: string; comingSoon?: boolean }> = [
   { id: 'all', label: 'All' },
@@ -994,6 +994,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                             {!message.deleted_at && message.media_url && message.message_type === 'voice' && <VoiceMessagePlayer src={message.media_url} mine={mine} name={message.media_name} />}
                             {!message.deleted_at && message.media_url && message.message_type === 'file' && <a href={message.media_url} target="_blank" rel="noreferrer" className={`mb-2 flex items-center gap-2 rounded-xl p-2.5 ${mine ? 'bg-white/10' : 'bg-sun-surface-light'}`}><FileText size={20} /><span className="min-w-0"><span className="block truncate text-xs font-semibold">{message.media_name || message.body}</span><span className="text-[9px] opacity-65">{formatFileSize(message.media_size)}</span></span></a>}
                             {!message.deleted_at && message.message_type === 'location' && typeof message.metadata?.latitude === 'number' && typeof message.metadata?.longitude === 'number' && <a href={`https://www.google.com/maps?q=${message.metadata.latitude},${message.metadata.longitude}`} target="_blank" rel="noreferrer" className={`mb-2 block rounded-xl p-3 font-semibold ${mine ? 'bg-white/10' : 'bg-sun-primary/5 text-sun-primary'}`}>View shared location</a>}
+                            {!message.deleted_at && message.message_type === 'story_reply' && <StoryReplyCard message={message} mine={mine} />}
                             {!message.deleted_at && <RichContentCard message={message} mine={mine} />}
                             {!message.deleted_at && isKorusaExperience(message.message_type) && <KorusaExperienceCard message={message} mine={mine} />}
                             <p className={`whitespace-pre-wrap break-words leading-relaxed ${message.deleted_at ? 'italic opacity-60' : ''} ${message.media_url && message.body === message.media_name ? 'sr-only' : ''}`}>{message.body}</p>

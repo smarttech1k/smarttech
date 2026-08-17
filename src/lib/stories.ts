@@ -20,6 +20,10 @@ export type Story = {
   expiresAt: string;
   viewedByMe: boolean;
   viewCount: number;
+  // The caller's own reaction, or null. Always the caller's, so it is not gated.
+  myReaction: string | null;
+  // Author-only, like viewCount: 0 on someone else's story by design.
+  reactionCount: number;
 };
 
 export type StoryGroup = {
@@ -38,7 +42,9 @@ export type StoryViewer = {
   username: string | null;
   fullName: string | null;
   avatarUrl: string | null;
-  viewedAt: string;
+  // Null for someone who reacted without a recorded view row.
+  viewedAt: string | null;
+  reaction: string | null;
 };
 
 type StoryFeedRow = {
@@ -55,6 +61,8 @@ type StoryFeedRow = {
   expires_at: string;
   viewed_by_me: boolean;
   view_count: number | string;
+  my_reaction: string | null;
+  reaction_count: number | string;
 };
 
 const STORY_BUCKET = 'story-media';
@@ -131,6 +139,8 @@ export async function listStoryGroups(): Promise<StoryGroup[]> {
       expiresAt: row.expires_at,
       viewedByMe: !!row.viewed_by_me,
       viewCount: Number(row.view_count || 0),
+      myReaction: row.my_reaction,
+      reactionCount: Number(row.reaction_count || 0),
     };
 
     const existing = groups.get(row.user_id);
@@ -237,6 +247,62 @@ export async function markStoryViewed(storyId: string) {
   if (error) throw error;
 }
 
+// A single story's media, signed on its own. The chat thread needs this for the
+// thumbnail on a story reply, where there is one path and no rail to batch with.
+// Returns null instead of throwing: an expired story's object may already be gone,
+// and the reply card is expected to degrade to text in that case.
+export async function signStoryPath(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(STORY_BUCKET)
+    .createSignedUrl(path, MEDIA_URL_TTL_SECONDS);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+}
+
+// Sets, replaces or clears the caller's reaction. Returns the emoji now in effect,
+// or null once cleared - the server's answer rather than an optimistic guess, so a
+// rejected write cannot leave the picker lit.
+export async function setStoryReaction(storyId: string, emoji: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('set_story_reaction', {
+    target_story_id: storyId,
+    reaction_emoji: emoji,
+  });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
+
+// The author's live totals for one story. get_story_feed's counts are a snapshot
+// taken when the rail loaded, so they still read 0 for a story someone watched a
+// moment later. One RPC because the footer needs both numbers together. Returns no
+// row for anyone but the author, which the null here represents.
+export async function getStoryInsights(
+  storyId: string,
+): Promise<{ viewCount: number; reactionCount: number } | null> {
+  const { data, error } = await supabase
+    .rpc('get_story_insights', { target_story_id: storyId })
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { view_count: number | string; reaction_count: number | string };
+  return {
+    viewCount: Number(row.view_count || 0),
+    reactionCount: Number(row.reaction_count || 0),
+  };
+}
+
+// Sends a story reply as a direct message and returns the new message id. The RPC
+// enforces the story audience (which is what brings blocking into this path) and
+// the app's existing turn rule, so a rejection here is meaningful and its message
+// is worth showing.
+export async function sendStoryReply(storyId: string, body: string): Promise<string> {
+  const { data, error } = await supabase.rpc('send_story_reply', {
+    target_story_id: storyId,
+    reply_body: body,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function getStoryViewers(storyId: string): Promise<StoryViewer[]> {
   const { data, error } = await supabase.rpc('get_story_viewers', { target_story_id: storyId });
   if (error) throw error;
@@ -245,13 +311,15 @@ export async function getStoryViewers(storyId: string): Promise<StoryViewer[]> {
     username: string | null;
     full_name: string | null;
     avatar_url: string | null;
-    viewed_at: string;
+    viewed_at: string | null;
+    reaction: string | null;
   }>).map((row) => ({
     id: row.id,
     username: row.username,
     fullName: row.full_name,
     avatarUrl: row.avatar_url,
     viewedAt: row.viewed_at,
+    reaction: row.reaction,
   }));
 }
 

@@ -86,6 +86,23 @@ export const StoriesRail: React.FC<StoriesRailProps> = ({
     );
   }, []);
 
+  // Same principle as handleViewed: patch the one story so the emoji stays lit if
+  // the user navigates away and back without a reload. The count is not touched -
+  // it is the author's number, and the author cannot react to their own story.
+  const handleReacted = useCallback((storyId: string, emoji: string | null) => {
+    setGroups((previous) =>
+      previous.map((group) => {
+        if (!group.stories.some((story) => story.id === storyId)) return group;
+        return {
+          ...group,
+          stories: group.stories.map((story) =>
+            story.id === storyId ? { ...story, myReaction: emoji } : story,
+          ),
+        };
+      }),
+    );
+  }, []);
+
   const myGroup = groups.find((group) => group.isMine) ?? null;
   const myGroupIndex = myGroup ? groups.indexOf(myGroup) : -1;
   const otherGroups = groups.filter((group) => !group.isMine);
@@ -199,6 +216,7 @@ export const StoriesRail: React.FC<StoriesRailProps> = ({
           startGroupIndex={viewerStart}
           onClose={() => setViewerStart(null)}
           onViewed={handleViewed}
+          onReacted={handleReacted}
           onDeleted={() => void load()}
         />
       )}
