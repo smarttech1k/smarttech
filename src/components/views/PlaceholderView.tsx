@@ -8,11 +8,14 @@ export const PlaceholderView = ({ title }: { title: string }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-sun-bg p-8 flex flex-col items-center justify-center text-center">
-      <motion.div 
+    // min-h-full, not min-h-screen: this renders inside the shell's own scroller,
+    // so 100vh was taller than the space available and pushed the page into a
+    // second scroll on a phone.
+    <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md space-y-8"
+        className="w-full max-w-md space-y-8"
       >
         <div className="space-y-4">
           <div className="w-20 h-20 bg-sun-surface-light border border-sun-border rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-xl">
@@ -20,7 +23,7 @@ export const PlaceholderView = ({ title }: { title: string }) => {
                 <Home size={24} />
              </div>
           </div>
-          <h1 className="text-4xl font-display font-black text-sun-text-main uppercase tracking-tighter">{title}</h1>
+          <h1 className="text-3xl sm:text-4xl font-display font-black text-sun-text-main uppercase tracking-tighter wrap-anywhere">{title}</h1>
           <p className="text-sun-text-muted font-medium leading-relaxed">
             This section of the Korusa ecosystem is currently being synchronized. We're building something extraordinary here.
           </p>

@@ -181,7 +181,10 @@ export const AuthUI = ({
 
   const containerClasses = isModal
     ? 'fixed inset-0 z-[1000] flex flex-col items-center overflow-y-auto p-4 py-12 md:p-6 md:py-20'
-    : 'min-h-screen bg-sun-bg flex flex-col items-center overflow-y-auto p-6 py-12 sm:p-12';
+    // min-h-dvh and a smaller mobile gutter: 100vh is the tall viewport, so on a
+    // phone the page was taller than the visible area even when the form fitted,
+    // and p-6 took 48px of a 320px screen away from the inputs.
+    : 'min-h-dvh bg-sun-bg flex flex-col items-center overflow-y-auto p-4 py-10 sm:p-12 sm:py-12';
 
   return (
     <div className={containerClasses}>

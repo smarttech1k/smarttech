@@ -124,7 +124,13 @@ export const StoriesRail: React.FC<StoriesRailProps> = ({
       <div
         ref={scrollerRef}
         onScroll={updateScrollButtons}
-        className="scrollbar-hide flex gap-4 overflow-x-auto px-1 pb-1 pt-1"
+        // Below sm the rail pulls out to the full screen width and puts the page
+        // gutter back as its own padding, so a tile that is partly scrolled off is
+        // cut at the edge of the screen rather than 16px inside it - the same
+        // -mx-4 px-4 idiom the Explore and Notifications filter rows use. The
+        // negative margin is safe next to page-container's overflow clip because
+        // clipping starts at the padding box, which is exactly where this ends.
+        className="scrollbar-hide -mx-4 flex gap-4 overflow-x-auto px-4 pb-1 pt-1 sm:mx-0 sm:px-1"
       >
         {/* Your story: opens the composer, or your own reel if one is live. */}
         {currentUserId && (

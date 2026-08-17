@@ -104,7 +104,12 @@ const ReelItem: React.FC<{ reel: Reel; isActive: boolean; isMuted: boolean; togg
   };
 
   return (
-    <div className="relative h-screen w-full snap-start bg-sun-bg flex items-center justify-center overflow-hidden shrink-0">
+    // h-full, not h-screen. The snap container above is h-full of a fixed inset-0
+    // parent, so on a phone a 100vh slide is taller than the scroller by the height
+    // of the URL bar: the caption and the action rail (bottom-20) fall below the
+    // fold, every snap point lands short, and the up/down buttons - which scroll by
+    // the container's clientHeight - drift out of step with the slides.
+    <div className="relative h-full w-full snap-start bg-sun-bg flex items-center justify-center overflow-hidden shrink-0">
       <video 
         ref={videoRef}
         src={reel.videoUrl} 

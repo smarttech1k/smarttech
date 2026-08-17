@@ -34,7 +34,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSignOut }) => {
       <AnimatePresence>
         {isSidebarOpen && <motion.button type="button" aria-label="Close navigation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm lg:hidden" />}
       </AnimatePresence>
-      <aside className={`fixed inset-y-0 left-0 z-[90] flex w-[280px] flex-col border-r border-sun-border bg-sun-surface shadow-xl transition-transform duration-200 lg:w-20 lg:translate-x-0 lg:shadow-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Primary navigation">
+      {/* min(17.5rem, 86vw) rather than a flat 280px: on a 320px phone a fixed
+          280px drawer leaves 40px of backdrop, which is not enough of a target to
+          dismiss it by tapping outside. */}
+      <aside className={`fixed inset-y-0 left-0 z-[90] flex w-[min(17.5rem,86vw)] flex-col border-r border-sun-border bg-sun-surface shadow-xl transition-transform duration-200 lg:w-20 lg:translate-x-0 lg:shadow-none ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Primary navigation">
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-sun-border px-5 lg:justify-center lg:px-0">
           <button type="button" onClick={() => go('/home')} className="rounded-lg lg:hidden" aria-label="Go to home"><KorusaLogo size={30} textClassName="text-lg" /></button>
           <button type="button" onClick={() => go('/home')} className="hidden rounded-xl lg:block" aria-label="Go to home"><KorusaIcon size={38} /></button>

@@ -20,8 +20,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ onSignOut }) => {
   const containerClass = isFullScreen
     ? 'h-full w-full'
     : WIDE_PAGES.has(section)
-      ? 'mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8'
-      : 'mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8';
+      ? 'page-container mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8'
+      : 'page-container mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8';
 
   return (
     <div className="noise-overlay flex h-dvh min-h-0 flex-col overflow-hidden bg-sun-bg font-sans text-sun-text-main">
@@ -33,7 +33,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ onSignOut }) => {
         <main
           id="main-content"
           className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto lg:ml-20 ${
-            isFullScreen ? 'pb-0' : 'pb-20 md:pb-8'
+            // The mobile bar is 4rem tall plus whatever the device reserves below
+            // it, so a flat pb-20 left the last few lines of every page sitting
+            // under the nav on a phone with a home indicator.
+            isFullScreen ? 'pb-0' : 'pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8'
           }`}
         >
           <div className={containerClass}>

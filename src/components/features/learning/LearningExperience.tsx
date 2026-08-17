@@ -16,6 +16,7 @@ import {
   Lock,
   Search,
   BookOpen,
+  X,
   Clock
 } from 'lucide-react';
 import { Avatar } from '../../ui/Avatar';
@@ -57,7 +58,11 @@ const mockChapters: Chapter[] = [
 export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
   const [activeTab, setActiveTab] = useState<'lessons' | 'notes' | 'discussion'>('lessons');
   const [currentLessonId, setCurrentLessonId] = useState('3');
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  // This drives the mobile curriculum drawer. It used to be `isSidebarOpen`, set to
+  // true and toggled only by a lg:hidden floating button - which meant the button did
+  // nothing (the aside it collapsed was itself hidden below lg) and the curriculum was
+  // unreachable on a phone. The desktop aside is simply always open, as it was.
+  const [isCurriculumOpen, setCurriculumOpen] = useState(false);
 
   return (
     <div className="fixed inset-0 z-[200] bg-sun-bg flex flex-col font-sans">
@@ -131,8 +136,8 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
 
             {/* Content Details (Distraction-free) */}
             <div className="space-y-12 pb-20">
-              <div className="flex items-center justify-between">
-                <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 space-y-4">
                    <h2 className="text-3xl font-display font-bold">Core Values & Ethics</h2>
                    <div className="flex flex-wrap gap-6 items-center">
                       <div className="flex items-center gap-2 text-xs font-bold text-sun-text-muted">
@@ -149,7 +154,9 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
                       </div>
                    </div>
                 </div>
-                <div className="flex gap-2">
+                {/* shrink-0: these are fixed 48px squares, and without it the flex row
+                    shrank them into ovals on a narrow screen. */}
+                <div className="flex shrink-0 gap-2">
                    <Button 
                     variant="secondary" 
                     className="!rounded-2xl h-12 w-12 p-0 bg-sun-text-main/5 hover:bg-sun-primary hover:text-black transition-all"
@@ -169,7 +176,7 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
 
               {/* Interaction Tabs */}
               <div className="space-y-6">
-                <div className="flex gap-8 border-b border-sun-border">
+                <div className="flex gap-5 border-b border-sun-border sm:gap-8">
                   {['discussion', 'notes', 'resources'].map((tab) => (
                     <button
                       key={tab}
@@ -236,8 +243,21 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
 
-        {/* Lesson Sidebar */}
-        <aside className={`${isSidebarOpen ? 'w-80' : 'w-0'} bg-sun-surface/20 border-l border-sun-border transition-all duration-300 hidden lg:flex flex-col relative`}>
+        {/* Lesson Sidebar - an off-canvas drawer below lg, a static column above it.
+            top-16 leaves the header's back button reachable while it is open. */}
+        {isCurriculumOpen && (
+          <button
+            type="button"
+            aria-label="Close curriculum"
+            onClick={() => setCurriculumOpen(false)}
+            className="fixed inset-0 z-[215] bg-black/50 backdrop-blur-sm lg:hidden"
+          />
+        )}
+        <aside
+          className={`fixed bottom-0 right-0 top-16 z-[220] flex w-[min(20rem,86vw)] flex-col border-l border-sun-border bg-sun-bg transition-transform duration-300 lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:bg-sun-surface/20 ${
+            isCurriculumOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none lg:pointer-events-auto'
+          }`}
+        >
           <div className="p-6 border-b border-sun-border flex items-center justify-between shrink-0">
              <h3 className="font-display font-bold">Curriculum</h3>
              <button className="text-sun-text-muted hover:text-white transition-colors"><Search size={18}/></button>
@@ -251,7 +271,7 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
                   {chapter.lessons.map((lesson) => (
                     <button
                       key={lesson.id}
-                      onClick={() => setCurrentLessonId(lesson.id)}
+                      onClick={() => { setCurrentLessonId(lesson.id); setCurriculumOpen(false); }}
                       className={`w-full group text-left p-4 rounded-2xl flex items-center gap-4 transition-all ${currentLessonId === lesson.id ? 'bg-sun-primary/10 border border-sun-primary/20' : 'hover:bg-white/5 border border-transparent'}`}
                     >
                       <div className="shrink-0">
@@ -277,7 +297,7 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
             ))}
           </div>
 
-          <div className="p-6 border-t border-sun-border shrink-0">
+          <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-sun-border shrink-0 lg:pb-6">
              <Button className="w-full h-12 !rounded-xl gap-2">
                 <SkipForward size={18} />
                 Next Lesson
@@ -286,11 +306,13 @@ export const LearningExperience = ({ onBack }: { onBack: () => void }) => {
         </aside>
 
         {/* Mobile Sidebar Toggle (Floating) */}
-        <button 
-          onClick={() => setSidebarOpen(!isSidebarOpen)}
-          className="lg:hidden fixed bottom-24 right-6 z-[210] w-14 h-14 bg-sun-primary text-black rounded-full shadow-2xl flex items-center justify-center border-4 border-sun-bg active:scale-95 transition-all"
+        <button
+          onClick={() => setCurriculumOpen((open) => !open)}
+          aria-label={isCurriculumOpen ? 'Hide curriculum' : 'Show curriculum'}
+          aria-expanded={isCurriculumOpen}
+          className="lg:hidden fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-[225] w-14 h-14 bg-sun-primary text-black rounded-full shadow-2xl flex items-center justify-center border-4 border-sun-bg active:scale-95 transition-all"
         >
-          <BookOpen size={24} />
+          {isCurriculumOpen ? <X size={24} /> : <BookOpen size={24} />}
         </button>
       </div>
     </div>

@@ -997,7 +997,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ onBack }) => {
                             {!message.deleted_at && message.message_type === 'story_reply' && <StoryReplyCard message={message} mine={mine} />}
                             {!message.deleted_at && <RichContentCard message={message} mine={mine} />}
                             {!message.deleted_at && isKorusaExperience(message.message_type) && <KorusaExperienceCard message={message} mine={mine} />}
-                            <p className={`whitespace-pre-wrap break-words leading-relaxed ${message.deleted_at ? 'italic opacity-60' : ''} ${message.media_url && message.body === message.media_name ? 'sr-only' : ''}`}>{message.body}</p>
+                            <p className={`whitespace-pre-wrap wrap-anywhere leading-relaxed ${message.deleted_at ? 'italic opacity-60' : ''} ${message.media_url && message.body === message.media_name ? 'sr-only' : ''}`}>{message.body}</p>
                             <div className={`mt-1 flex items-center justify-end gap-1 text-[9px] ${mine ? 'text-white/65' : 'text-sun-text-muted'}`}>
                               {message.edited_at && <span>Edited</span>}
                               {message.pinned_at && <Pin size={9} />}

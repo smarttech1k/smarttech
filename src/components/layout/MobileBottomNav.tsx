@@ -24,16 +24,16 @@ export const MobileBottomNav = () => {
           const Icon = item.icon;
           if (item.isCreate) {
             return (
-              <button key={item.id} type="button" onClick={() => navigate(item.path)} className="flex h-12 w-12 -translate-y-2 items-center justify-center rounded-2xl bg-sun-primary text-white shadow-lg shadow-sun-primary/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/20" aria-label="Create a post">
+              <button key={item.id} type="button" onClick={() => navigate(item.path)} className="flex h-12 w-12 shrink-0 -translate-y-2 items-center justify-center rounded-2xl bg-sun-primary text-white shadow-lg shadow-sun-primary/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/20" aria-label="Create a post">
                 <Plus size={23} strokeWidth={2.5} />
               </button>
             );
           }
           return (
-            <button key={item.id} type="button" onClick={() => navigate(item.path)} aria-current={active ? 'page' : undefined} className={`relative flex h-full min-w-14 flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors ${active ? 'text-sun-primary' : 'text-sun-text-muted'}`}>
+            <button key={item.id} type="button" onClick={() => navigate(item.path)} aria-current={active ? 'page' : undefined} className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors ${active ? 'text-sun-primary' : 'text-sun-text-muted'}`}>
               {active && <motion.span layoutId="mobile-nav-indicator" className="absolute top-0 h-0.5 w-6 rounded-full bg-sun-primary" />}
               <Icon size={21} strokeWidth={active ? 2.5 : 2} />
-              <span>{item.label}</span>
+              <span className="max-w-full truncate">{item.label}</span>
             </button>
           );
         })}

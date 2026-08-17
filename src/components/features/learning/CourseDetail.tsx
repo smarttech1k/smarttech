@@ -106,7 +106,7 @@ export const CourseDetailView = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
         {/* Main Content (Left) */}
-        <div className="lg:col-span-8 space-y-8 sm:space-y-12">
+        <div className="min-w-0 lg:col-span-8 space-y-8 sm:space-y-12">
           {/* Header */}
           <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -257,7 +257,7 @@ export const CourseDetailView = ({
         </div>
 
         {/* Sidebar Card (Right) */}
-        <div className="lg:col-span-4 lg:sticky lg:top-24 h-fit">
+        <div className="min-w-0 lg:col-span-4 lg:sticky lg:top-24 h-fit">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

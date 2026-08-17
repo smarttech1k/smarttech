@@ -21,12 +21,16 @@ export const Navbar = () => {
 
   return (
     <header className="nav-blur relative z-[60] h-16 shrink-0 lg:pl-20">
-      <div className="flex h-full items-center gap-3 px-3 sm:px-5 lg:px-8">
+      {/* Tighter gaps and padding below sm: the search field is the only flexible
+          item in this row, so every fixed pixel elsewhere is taken straight out of
+          it. At 320px the old spacing left it 69px wide - narrower than its own
+          left padding plus the magnifier. */}
+      <div className="flex h-full items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
         <button type="button" onClick={toggleSidebar} className={`${iconButtonClass} lg:hidden`} title="Open navigation" aria-label="Open navigation"><Menu size={20} /></button>
         <button type="button" onClick={() => navigate('/home')} className="shrink-0 rounded-lg lg:hidden" aria-label="Go to home"><KorusaLogo size={25} textClassName="hidden text-base sm:inline" /></button>
-        <div className="relative ml-1 min-w-0 flex-1 sm:ml-2 sm:max-w-xl">
-          <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sun-text-muted" />
-          <input type="search" placeholder="Search Korusa" aria-label="Search Korusa" className="h-10 w-full rounded-xl border border-sun-border bg-sun-surface px-4 pl-10 text-sm text-sun-text-main shadow-sm outline-none transition-colors placeholder:text-sun-text-muted/65 focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10" />
+        <div className="relative min-w-0 flex-1 sm:ml-2 sm:max-w-xl">
+          <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sun-text-muted sm:left-3.5" />
+          <input type="search" placeholder="Search Korusa" aria-label="Search Korusa" className="h-10 w-full rounded-xl border border-sun-border bg-sun-surface pl-9 pr-3 text-sm text-sun-text-main shadow-sm outline-none transition-colors placeholder:text-sun-text-muted/65 focus:border-sun-primary focus:ring-4 focus:ring-sun-primary/10 sm:pl-10 sm:pr-4" />
         </div>
         <nav className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1" aria-label="Quick actions">
           <button type="button" onClick={toggleTheme} className={iconButtonClass} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>{isDarkMode ? <Sun size={19} /> : <Moon size={19} />}</button>

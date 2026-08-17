@@ -136,7 +136,7 @@ export const NotificationsView = ({ onBack, onExploreClick }: { onBack?: () => v
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className={`p-5 sm:p-6 flex items-start gap-4 transition-colors hover:bg-white/5 relative group cursor-pointer ${!notification.isRead ? 'bg-sun-primary/5' : ''}`}
+                  className={`p-4 sm:p-6 flex items-start gap-3 sm:gap-4 transition-colors hover:bg-white/5 relative group cursor-pointer ${!notification.isRead ? 'bg-sun-primary/5' : ''}`}
                 >
                   <div className="relative shrink-0">
                     <Avatar size="md" src={notification.user.avatar} className="ring-2 ring-transparent group-hover:ring-sun-primary/20 transition-all" />
@@ -162,7 +162,10 @@ export const NotificationsView = ({ onBack, onExploreClick }: { onBack?: () => v
                     </div>
                   )}
 
-                  <button className="p-2 opacity-0 group-hover:opacity-100 text-sun-text-muted hover:text-white transition-all shrink-0">
+                  {/* Hidden below sm rather than shown: this control only appears on
+                      hover, which a touch screen never delivers, so on a phone it was
+                      34px of the row spent on something the user could not reach. */}
+                  <button className="hidden sm:block p-2 opacity-0 group-hover:opacity-100 text-sun-text-muted hover:text-white transition-all shrink-0">
                     <MoreHorizontal size={18} />
                   </button>
                 </motion.div>

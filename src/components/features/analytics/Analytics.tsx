@@ -109,11 +109,16 @@ export const AnalyticsView = ({ onBack }: { onBack?: () => void }) => {
   }, []);
 
   if (!isMounted) {
-     return <div className="min-h-screen bg-sun-bg" />;
+     // min-h-full: this placeholder renders inside the shell's own scroller, so a
+     // 100vh block added a second scrollbar for the first frame after mount.
+     return <div className="min-h-full bg-sun-bg" />;
   }
 
   return (
-    <div className="space-y-6 sm:space-y-10 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8">
+    // No horizontal padding here: AppLayout's page container already applies
+    // px-4 sm:px-6 lg:px-8, and doubling it cost 32px of a 375px screen. Same for
+    // the bottom padding, which the shell now sizes around the mobile nav.
+    <div className="space-y-6 sm:space-y-10 md:pb-20 max-w-7xl mx-auto pt-4 sm:pt-8">
       {/* Design-Focused Creative Insights Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 md:gap-8 border-b border-sun-border/40 pb-6">
         <div className="space-y-4">

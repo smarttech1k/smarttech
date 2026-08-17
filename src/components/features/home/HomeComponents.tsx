@@ -37,7 +37,7 @@ export const PromptBar = ({
           />
           <div
             onClick={onFocus}
-            className="group flex min-h-11 flex-1 cursor-text items-center justify-between rounded-xl border border-sun-border bg-sun-surface-light px-4 text-sm text-sun-text-muted transition-colors hover:border-sun-primary/30"
+            className="group flex min-h-11 min-w-0 flex-1 cursor-text items-center justify-between gap-2 rounded-xl border border-sun-border bg-sun-surface-light px-3 text-sm text-sun-text-muted transition-colors hover:border-sun-primary/30 sm:px-4"
           >
             <span className="truncate transition-colors group-hover:text-sun-text-main">
               What are you working on or learning today?
@@ -168,7 +168,7 @@ export const CommunityPost: React.FC<PostProps> = ({
       initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
-      className="rounded-2xl border border-sun-border bg-sun-surface p-5 shadow-sm transition-shadow hover:shadow-premium sm:p-6"
+      className="rounded-2xl border border-sun-border bg-sun-surface p-4 shadow-sm transition-shadow hover:shadow-premium sm:p-6"
     >
       {/* No category badge: posts carry no type in the database, so labelling
           every one of them would be inventing a fact about the author's intent. */}
@@ -200,7 +200,15 @@ export const CommunityPost: React.FC<PostProps> = ({
       </button>
 
       <div className="space-y-4">
-        <p className="break-words text-sm font-normal leading-relaxed text-sun-text-main sm:text-base">
+        {/*
+          wrap-anywhere, not break-words. overflow-wrap: break-word only breaks a
+          word once the line is already full - it does not lower the paragraph's
+          min-content width, so a pasted URL still reported itself as one 600px
+          word and dragged the whole page sideways. overflow-wrap: anywhere counts
+          the break opportunities when measuring, which is what the grid track
+          above reads.
+        */}
+        <p className="wrap-anywhere text-sm font-normal leading-relaxed text-sun-text-main sm:text-base">
           {content}
         </p>
 
@@ -220,27 +228,29 @@ export const CommunityPost: React.FC<PostProps> = ({
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-sun-border/30 pt-4 text-xs">
-          <div className="flex gap-4">
+        <div className="flex items-center justify-between border-t border-sun-border/30 pt-2 text-xs sm:pt-4">
+          <div className="flex min-w-0 gap-1 sm:gap-4">
             <button
               onClick={handleLike}
               disabled={isLiking}
-              className={`flex items-center gap-1.5 font-bold transition-all ${
+              // min-h-11 below sm: a 20px-tall row of icon-plus-count is a real
+              // target on a mouse and a guess on a thumb.
+              className={`flex min-h-11 items-center gap-1.5 px-1 font-bold transition-all sm:min-h-0 sm:px-0 ${
                 liked ? 'text-sun-primary' : 'text-sun-text-muted hover:text-sun-primary'
               } ${isLiking ? 'opacity-60' : ''}`}
             >
-              <ThumbsUp size={14} />
-              <span>
+              <ThumbsUp size={14} className="shrink-0" />
+              <span className="truncate">
                 {likesCount} {likesCount === 1 ? 'Like' : 'Likes'}
               </span>
             </button>
 
             <button
               onClick={() => setShowCommentBox((prev) => !prev)}
-              className="flex items-center gap-1.5 font-bold text-sun-text-muted transition-all hover:text-sun-primary"
+              className="flex min-h-11 items-center gap-1.5 px-1 font-bold text-sun-text-muted transition-all hover:text-sun-primary sm:min-h-0 sm:px-0"
             >
-              <MessageSquare size={14} />
-              <span>
+              <MessageSquare size={14} className="shrink-0" />
+              <span className="truncate">
                 {commentsCount} {commentsCount === 1 ? 'Comment' : 'Comments'}
               </span>
             </button>
@@ -248,7 +258,7 @@ export const CommunityPost: React.FC<PostProps> = ({
 
           <button
             onClick={() => navigate(`/messages?shareType=post&shareId=${id}`)}
-            className="p-1 text-sun-text-muted transition-colors hover:text-sun-primary"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-sun-text-muted transition-colors hover:text-sun-primary sm:min-h-0 sm:min-w-0 sm:p-1"
             title="Share post in a conversation"
             aria-label="Share post in a conversation"
           >
@@ -276,7 +286,7 @@ export const CommunityPost: React.FC<PostProps> = ({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-xs font-bold text-sun-text-main">
+                      <p className="wrap-anywhere text-xs font-bold text-sun-text-main">
                         {comment.profiles?.full_name ||
                           comment.profiles?.username ||
                           'Korusa member'}
@@ -285,7 +295,7 @@ export const CommunityPost: React.FC<PostProps> = ({
                         {formatCommentTime(comment.created_at)}
                       </p>
                     </div>
-                    <p className="mt-1 break-words text-sm leading-relaxed text-sun-text-main">
+                    <p className="mt-1 wrap-anywhere text-sm leading-relaxed text-sun-text-main">
                       {comment.content}
                     </p>
                   </div>

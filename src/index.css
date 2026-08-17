@@ -105,11 +105,36 @@
   body {
     @apply bg-sun-bg text-sun-text-main font-sans antialiased selection:bg-sun-primary selection:text-white overflow-x-hidden;
     width: 100%;
-    min-width: 320px;
+    /*
+     * clip rather than hidden. hidden makes the body a scroll container, so one
+     * too-wide descendant leaves the whole page parked a few pixels to the side
+     * with no scrollbar to bring it back - every heading reads as cut off at the
+     * left edge. clip cannot be scrolled at all, and unlike hidden it does not
+     * capture position: sticky. The @apply above stays as the fallback for any
+     * engine that does not know clip.
+     */
+    overflow-x: clip;
+    /*
+     * No min-width. Forcing 320px means a folded phone or a narrow split-screen
+     * pane scrolls sideways instead of reflowing, which is the one case where
+     * reflow matters most.
+     */
     min-height: 100vh;
+    /*
+     * dvh, not vh. The shell inside is 100dvh tall, so a 100vh body made the
+     * document taller than its own content by the height of the browser chrome:
+     * the entire app could be dragged up and down over a dead strip, on top of
+     * the real scroller inside it.
+     */
+    min-height: 100dvh;
     margin: 0;
     position: relative;
-    scrollbar-gutter: stable;
+    /*
+     * No scrollbar-gutter. The body never scrolls - the shell is 100dvh with its
+     * own inner scroller - so a stable gutter only reserved 7px that nothing
+     * could ever use, and left the content column 7px narrower than the fixed
+     * bottom nav it is supposed to line up with.
+     */
     text-rendering: optimizeLegibility;
     transition:
       background-color 200ms ease,
@@ -261,6 +286,25 @@
     width: min(100%, 90rem);
     margin-inline: auto;
     padding-inline: clamp(1rem, 2.5vw, 2rem);
+  }
+
+  /*
+   * Every routed page sits in this box, and it clips horizontally so one
+   * unbreakable string - a pasted URL in a post, a 40-character hashtag - can
+   * never widen the layout past the viewport.
+   *
+   * clip, not hidden, for two reasons: hidden would make this a scroll container
+   * and the sticky right-hand column inside it would stick to this box instead of
+   * the page scroller, and a clipped box cannot be scrolled sideways at all, so
+   * the layout can never end up parked off-centre. Anything the browser does not
+   * clip here still meets main's overflow-x-hidden one level up.
+   *
+   * Note the clip edge is the padding box, so a child that pulls itself out to
+   * the full width with -mx-4 (the stories rail) reaches exactly the viewport
+   * edge and is not cut.
+   */
+  .page-container {
+    overflow-x: clip;
   }
 
   .noise-overlay {

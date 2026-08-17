@@ -482,9 +482,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-5 border-t border-sun-border pt-6 lg:grid-cols-[1fr_auto]">
+                <div className="mt-6 grid gap-5 border-t border-sun-border pt-6 lg:grid-cols-[minmax(0,1fr)_auto]">
                   <div>
-                    <p className="max-w-2xl text-sm leading-relaxed text-sun-text-main">
+                    <p className="max-w-2xl wrap-anywhere text-sm leading-relaxed text-sun-text-main">
                       {profile?.bio || (isOwnProfile ? 'Add a bio to introduce your work and interests.' : 'This member has not added a bio yet.')}
                     </p>
                     <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-sun-primary/8 px-3 py-1.5 text-xs font-semibold text-sun-primary"><Sparkles size={14} />Korusa member</div>
@@ -515,7 +515,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
               ) : (
                 <div className="relative space-y-5 before:absolute before:bottom-8 before:left-[19px] before:top-8 before:w-px before:bg-gradient-to-b before:from-sun-primary before:via-sun-border before:to-transparent sm:before:left-[27px]">
                   {posts.map((post, index) => (
-                    <motion.article key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.05, 0.3) }} className="relative grid grid-cols-[40px_1fr] gap-3 sm:grid-cols-[56px_1fr] sm:gap-5">
+                    <motion.article key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(index * 0.05, 0.3) }} className="relative grid grid-cols-[40px_minmax(0,1fr)] gap-3 sm:grid-cols-[56px_minmax(0,1fr)] sm:gap-5">
                       <div className="relative z-10 mt-5 flex h-10 w-10 items-center justify-center rounded-2xl border border-sun-primary/20 bg-sun-surface text-xs font-bold text-sun-primary shadow-sm sm:h-14 sm:w-14">
                         {String(posts.length - index).padStart(2, '0')}
                       </div>
@@ -525,8 +525,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
                           <span className="rounded-full bg-sun-primary/8 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-sun-primary">Post</span>
                         </div>
                         <div className={`grid ${post.media_url ? 'md:grid-cols-[minmax(0,1fr)_240px]' : ''}`}>
-                          <div className="p-5 sm:p-6">
-                            <p className="whitespace-pre-wrap text-sm leading-7 text-sun-text-main sm:text-[15px]">{post.content || 'A photo shared with the Korusa community.'}</p>
+                          <div className="p-4 sm:p-6">
+                            <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-7 text-sun-text-main sm:text-[15px]">{post.content || 'A photo shared with the Korusa community.'}</p>
                             <div className="mt-5 flex items-center gap-2 text-[11px] font-medium text-sun-text-muted">{post.media_url ? <ImageIcon size={14} /> : <FileText size={14} />}{post.media_url ? 'Photo post' : 'Text post'}</div>
                           </div>
                           {post.media_url && (
@@ -583,7 +583,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
             </div>
             <div className="bg-sun-surface p-5 text-sun-text-main">
               <h3 className="text-sm font-semibold">About this cover</h3>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-sun-text-muted">
+              <p className="mt-2 whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-sun-text-muted">
                 {profile?.cover_description || 'No cover description has been added.'}
               </p>
             </div>
@@ -606,8 +606,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
                 <img src={selectedPost.media_url} alt="" className="max-h-[65vh] w-full object-contain" />
               </div>
             )}
-            <div className="p-5 sm:p-6">
-              <p className="whitespace-pre-wrap text-sm leading-7 text-sun-text-main">{selectedPost.content || 'Photo shared with the Korusa community.'}</p>
+            <div className="p-4 sm:p-6">
+              <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-7 text-sun-text-main">{selectedPost.content || 'Photo shared with the Korusa community.'}</p>
             </div>
           </section>
         </div>

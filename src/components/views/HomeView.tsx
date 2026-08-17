@@ -143,8 +143,12 @@ export const HomeView = () => {
         : 'No posts yet. Start the first conversation.';
 
   return (
-    <div className="mx-auto grid max-w-[1360px] grid-cols-1 gap-7 pb-16 lg:grid-cols-12 lg:gap-8">
-      <div className="space-y-7 lg:col-span-8 xl:col-span-9">
+    // min-w-0 on the columns is load-bearing, not tidying. A grid track defaults to
+    // minmax(auto, 1fr) and that auto floor is the column's min-content width, so a
+    // single unbreakable string anywhere in the feed - a pasted link, a long handle -
+    // pushes the track, the grid and the page wider than the screen.
+    <div className="mx-auto grid max-w-[1360px] grid-cols-1 gap-6 pb-8 sm:gap-7 sm:pb-16 lg:grid-cols-12 lg:gap-8">
+      <div className="min-w-0 space-y-6 sm:space-y-7 lg:col-span-8 xl:col-span-9">
         <StoriesRail
           currentUserId={myProfile?.id ?? null}
           currentUserName={myProfile?.full_name || myProfile?.username || null}
@@ -158,8 +162,8 @@ export const HomeView = () => {
         />
 
         <section className="space-y-4" aria-labelledby="community-heading">
-          <div className="flex flex-wrap items-end justify-between gap-4 px-1">
-            <div>
+          <div className="flex flex-wrap items-end justify-between gap-3 px-1">
+            <div className="min-w-0">
               <h2 id="community-heading" className="section-title">
                 Community activity
               </h2>
@@ -169,7 +173,10 @@ export const HomeView = () => {
                   : 'The newest posts across Korusa.'}
               </p>
             </div>
-            <div className="flex rounded-xl border border-sun-border bg-sun-surface p-1 shadow-sm">
+            {/* Full width below sm. The toggle wraps onto its own line on a phone
+                anyway, and a 28px-tall pill floating at the left edge of that line
+                is both hard to hit and hard to read as a pair of choices. */}
+            <div className="flex w-full rounded-xl border border-sun-border bg-sun-surface p-1 shadow-sm sm:w-auto">
               {SCOPES.map((option) => {
                 const active = scope === option.value;
                 return (
@@ -178,7 +185,7 @@ export const HomeView = () => {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setScope(option.value)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`min-h-10 flex-1 rounded-lg px-3 text-xs font-semibold transition-colors sm:min-h-0 sm:flex-none sm:py-1.5 ${
                       active
                         ? 'bg-sun-primary text-white'
                         : 'text-sun-text-muted hover:text-sun-text-main'
@@ -195,10 +202,10 @@ export const HomeView = () => {
             <button
               type="button"
               onClick={() => setActiveTag(null)}
-              className="ml-1 flex h-9 items-center gap-2 rounded-full border border-sun-primary/30 bg-sun-primary/10 px-3.5 text-xs font-bold text-sun-primary transition-colors hover:bg-sun-primary/15"
+              className="ml-1 flex h-10 max-w-full items-center gap-2 rounded-full border border-sun-primary/30 bg-sun-primary/10 px-3.5 text-xs font-bold text-sun-primary transition-colors hover:bg-sun-primary/15 sm:h-9"
             >
-              #{activeTag}
-              <X size={13} />
+              <span className="truncate">#{activeTag}</span>
+              <X size={13} className="shrink-0" />
             </button>
           )}
 
@@ -242,7 +249,7 @@ export const HomeView = () => {
         </section>
       </div>
 
-      <aside className="hidden space-y-5 lg:col-span-4 lg:block xl:col-span-3">
+      <aside className="hidden min-w-0 space-y-5 lg:col-span-4 lg:block xl:col-span-3">
         <div className="sticky top-5 space-y-5">
           <PeopleToFollow
             people={people}

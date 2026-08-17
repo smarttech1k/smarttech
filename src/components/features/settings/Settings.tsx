@@ -191,7 +191,10 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 pb-24 md:pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700 px-4 sm:px-6">
+    // AppLayout's page container supplies the horizontal gutter and the bottom
+    // clearance for the mobile nav; repeating them here squeezed the content
+    // column by 32px on a phone.
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 md:pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <header className="space-y-4 md:space-y-6">
         <div className="flex items-center gap-3">
           {onBack && !activeSection && <BackButton onClick={onBack} label="Back" sticky />}
@@ -288,7 +291,12 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                         />
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                          aria-label="Change profile photo"
+                          // Visible by default, hover-only from sm up: the scrim was the
+                          // only hint that the avatar is tappable, and a touch screen
+                          // never fires hover - so on a phone the upload button worked
+                          // but nothing on screen said it was there.
+                          className="absolute inset-0 bg-black/40 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center transition-opacity"
                         >
                           <Upload size={20} className="text-white" />
                         </button>

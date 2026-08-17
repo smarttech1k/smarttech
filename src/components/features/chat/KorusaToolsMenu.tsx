@@ -44,7 +44,10 @@ export const KorusaToolsMenu = ({ onClose, onCreate }: { onClose: () => void; on
 
   return (
     <div className="fixed inset-0 z-[140] flex items-end bg-black/45 backdrop-blur-sm md:absolute md:items-center md:justify-center md:p-4" role="dialog" aria-modal="true" aria-labelledby="korusa-tools-title">
-      <section className="max-h-[88dvh] w-full overflow-y-auto rounded-t-[28px] border border-sun-border bg-sun-surface p-4 shadow-2xl md:max-w-lg md:rounded-[28px]">
+      {/* The sheet sits on the bottom edge on a phone, so it owes the device its
+          inset - without it the share button sits under the home indicator. Every
+          other bottom-anchored surface in the app already pads for this. */}
+      <section className="max-h-[88dvh] w-full overflow-y-auto rounded-t-[28px] border border-sun-border bg-sun-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl md:max-w-lg md:rounded-[28px] md:pb-4">
         <header className="flex items-center justify-between"><div><h2 id="korusa-tools-title" className="font-display text-lg font-bold">Create together</h2><p className="text-[10px] text-sun-text-muted">Bring learning and creator experiences into this chat.</p></div><button type="button" onClick={onClose} className="composer-tool" aria-label="Close Korusa tools"><X size={18} /></button></header>
         <div className="mt-4 grid grid-cols-3 gap-2">{tools.map((tool) => <button key={tool.type} type="button" onClick={() => setSelectedType(tool.type)} className={`flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border p-2 text-[9px] font-semibold transition-all ${selectedType === tool.type ? 'border-sun-primary bg-sun-primary/10 text-sun-primary' : 'border-sun-border text-sun-text-muted hover:border-sun-primary/30'}`}><tool.icon size={18} /><span>{tool.label}</span></button>)}</div>
         <div className="mt-4 space-y-3">

@@ -391,7 +391,8 @@ export const CreateView = ({ onBack }: { onBack?: () => void }) => {
   );
 
   return (
-    <div className="relative w-full max-w-7xl mx-auto px-4 py-6 md:py-10">
+    // The page container above already applies the horizontal gutter.
+    <div className="relative w-full max-w-7xl mx-auto py-6 md:py-10">
       <DiscardModal />
 
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 md:gap-8 border-b border-sun-border/5 pb-6 md:pb-10 mb-8">

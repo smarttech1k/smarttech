@@ -192,27 +192,31 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
       <main className="flex-1 flex flex-col h-full relative min-w-0 bg-sun-bg lg:rounded-[2.5rem] lg:border lg:border-sun-border shadow-2xl overflow-hidden">
         
         {/* Header */}
-        <header className="h-16 sm:h-20 flex items-center justify-between px-6 border-b border-sun-border bg-sun-bg/90 backdrop-blur-3xl z-40 sticky top-0 shrink-0">
-          <div className="flex items-center gap-3">
-             <button 
+        <header className="h-16 sm:h-20 flex items-center justify-between gap-2 px-4 sm:px-6 border-b border-sun-border bg-sun-bg/90 backdrop-blur-3xl z-40 sticky top-0 shrink-0">
+          <div className="flex min-w-0 items-center gap-3">
+             <button
                onClick={onBack}
-               className="p-2 -ml-2 rounded-xl hover:bg-sun-text-main/5 text-sun-text-muted transition-colors sm:hidden"
+               className="p-2 -ml-2 shrink-0 rounded-xl hover:bg-sun-text-main/5 text-sun-text-muted transition-colors sm:hidden"
              >
                <ChevronLeft size={20} />
              </button>
-             <div className="flex flex-col">
-               <h1 className="text-sm sm:text-base font-bold text-sun-text-main flex items-center gap-1.5">
-                 Korusa Creator AI
-                 <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 text-[9px] leading-none py-0.5 font-bold">Friendly Guide</Badge>
+             <div className="flex min-w-0 flex-col">
+               <h1 className="text-sm sm:text-base font-bold text-sun-text-main flex min-w-0 items-center gap-1.5">
+                 <span className="truncate">Korusa Creator AI</span>
+                 <Badge className="bg-sun-primary/10 text-sun-primary border-sun-primary/10 text-[9px] leading-none py-0.5 font-bold shrink-0">Friendly Guide</Badge>
                </h1>
                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="w-1.5 h-1.5 bg-sun-accent rounded-full animate-pulse" />
-                  <span className="text-[8px] sm:text-[9px] font-bold text-sun-text-muted uppercase tracking-widest whitespace-nowrap">Ready to brainstorm together</span>
+                  <div className="w-1.5 h-1.5 bg-sun-accent rounded-full animate-pulse shrink-0" />
+                  {/* truncate, not whitespace-nowrap: at 8px with tracking-widest this
+                      line is ~170px wide and could not shrink, which pushed the header
+                      past a 320px screen - and main clips, so the buttons on the right
+                      were simply cut off rather than scrollable. */}
+                  <span className="text-[8px] sm:text-[9px] font-bold text-sun-text-muted uppercase tracking-widest truncate">Ready to brainstorm together</span>
                </div>
              </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
              <button 
                onClick={() => setMessages([])}
                className="p-2 rounded-xl bg-sun-surface border border-sun-border text-sun-text-muted hover:text-sun-primary transition-colors"
@@ -309,7 +313,7 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
                       {msg.role === 'assistant' && (
                         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-sun-accent/15 to-transparent" />
                       )}
-                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      <p className="whitespace-pre-wrap wrap-anywhere">{msg.content}</p>
                       
                       <div className={`mt-3 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-white/60 justify-end' : 'text-sun-text-muted justify-start'}`}>
                         <Clock size={10} />
@@ -338,7 +342,10 @@ export const ChatAssistantView = ({ onBack }: { onBack?: () => void }) => {
         </div>
 
         {/* Console Input area */}
-        <div className="p-4 sm:p-6 shrink-0 bg-gradient-to-t from-sun-bg via-sun-bg to-transparent sticky bottom-0 z-40">
+        {/* Assistant is a full-screen page, so AppLayout adds no bottom padding and
+            there is no mobile nav underneath: this composer is the last thing above
+            the home indicator and has to pad for it itself, as Messages does. */}
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] shrink-0 bg-gradient-to-t from-sun-bg via-sun-bg to-transparent sticky bottom-0 z-40">
           <div className="max-w-3xl mx-auto flex flex-col gap-2">
              <div className="relative flex items-end gap-2 bg-sun-surface/95 border border-sun-border rounded-2xl p-2 pl-4 focus-within:border-sun-primary/35 transition-all shadow-md">
                 <button className="p-2.5 mb-1 text-sun-text-muted hover:text-sun-primary transition-colors hover:bg-sun-bg rounded-lg" title="Attach design asset">
