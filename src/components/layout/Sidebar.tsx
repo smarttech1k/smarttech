@@ -23,7 +23,7 @@ const navItems: NavItem[] = [
 export const Sidebar: React.FC<SidebarProps> = ({ onSignOut }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSidebarOpen, setSidebarOpen } = useUIStore();
+  const { isSidebarOpen, setSidebarOpen, unreadNotifications } = useUIStore();
   const current = location.pathname.split('/')[1] || 'home';
 
   React.useEffect(() => setSidebarOpen(false), [location.pathname, setSidebarOpen]);
@@ -48,11 +48,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSignOut }) => {
             const section = item.path.split('/')[1];
             const active = current === section;
             const Icon = item.icon;
+            // Two presentations of one count: the rail above lg is icon-only, so it
+            // gets a dot on the glyph, while the labelled drawer below lg has room
+            // for the number itself.
+            const badge = item.path === '/notifications' ? unreadNotifications : 0;
             return (
-              <button key={item.path} type="button" onClick={() => go(item.path)} title={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors lg:justify-center lg:px-0 ${active ? 'bg-sun-primary/10 text-sun-primary' : 'text-sun-text-muted hover:bg-sun-surface-light hover:text-sun-text-main'}`}>
+              <button key={item.path} type="button" onClick={() => go(item.path)} title={item.label} aria-current={active ? 'page' : undefined} aria-label={badge > 0 ? `${item.label}, ${badge} unread` : undefined} className={`group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors lg:justify-center lg:px-0 ${active ? 'bg-sun-primary/10 text-sun-primary' : 'text-sun-text-muted hover:bg-sun-surface-light hover:text-sun-text-main'}`}>
                 {active && <motion.span layoutId="desktop-nav-indicator" className="absolute left-0 h-6 w-1 rounded-r-full bg-sun-primary" />}
-                <Icon size={21} strokeWidth={active ? 2.4 : 2} />
+                <span className="relative shrink-0">
+                  <Icon size={21} strokeWidth={active ? 2.4 : 2} />
+                  {badge > 0 && <span className="absolute -right-1 -top-1 hidden h-2.5 w-2.5 rounded-full bg-sun-primary ring-2 ring-sun-surface lg:block" />}
+                </span>
                 <span className="lg:hidden">{item.label}</span>
+                {badge > 0 && (
+                  <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-sun-primary px-1.5 text-[10px] font-black leading-none text-white lg:hidden">
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
                 <span className="pointer-events-none absolute left-[calc(100%+12px)] z-[110] hidden rounded-lg border border-sun-border bg-sun-surface px-2.5 py-1.5 text-xs text-sun-text-main opacity-0 shadow-md transition-opacity group-hover:opacity-100 lg:block">{item.label}</span>
               </button>
             );

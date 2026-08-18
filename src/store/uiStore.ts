@@ -17,7 +17,12 @@ interface UIState {
   // Modals
   showAuthModal: boolean;
   setShowAuthModal: (value: boolean) => void;
-  
+
+  // Notifications - one count, fed by the single subscription AppLayout owns, read
+  // by both the navbar bell and the sidebar item.
+  unreadNotifications: number;
+  setUnreadNotifications: (value: number) => void;
+
   // Content
   recentPosts: any[];
   addRecentPost: (post: any) => void;
@@ -50,6 +55,10 @@ export const useUIStore = create<UIState>((set) => ({
   // Modals
   showAuthModal: false,
   setShowAuthModal: (value) => set({ showAuthModal: value }),
+
+  // Notifications
+  unreadNotifications: 0,
+  setUnreadNotifications: (value) => set({ unreadNotifications: Math.max(0, value) }),
 
   // Content
   recentPosts: [],

@@ -10,7 +10,7 @@ const iconButtonClass = 'relative inline-flex h-10 w-10 shrink-0 items-center ju
 
 export const Navbar = () => {
   const navigate = useNavigate();
-  const { isDarkMode, toggleTheme, toggleSidebar } = useUIStore();
+  const { isDarkMode, toggleTheme, toggleSidebar, unreadNotifications } = useUIStore();
   const [profile, setProfile] = useState<ProfileRef | null>(null);
 
   useEffect(() => {
@@ -36,9 +36,17 @@ export const Navbar = () => {
           <button type="button" onClick={toggleTheme} className={iconButtonClass} title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>{isDarkMode ? <Sun size={19} /> : <Moon size={19} />}</button>
           <button type="button" onClick={() => navigate('/assistant')} className={`${iconButtonClass} hidden sm:inline-flex`} title="AI assistant" aria-label="Open AI assistant"><Sparkles size={19} /></button>
           <button type="button" onClick={() => navigate('/messages')} className={`${iconButtonClass} hidden sm:inline-flex`} title="Messages" aria-label="Open messages"><MessageSquare size={19} /></button>
-          {/* No unread dot: there is no real notification count to drive it, and a
-              badge that is always lit is a fabricated signal. */}
-          <button type="button" onClick={() => navigate('/notifications')} className={iconButtonClass} title="Notifications" aria-label="Open notifications"><Bell size={19} /></button>
+          {/* iconButtonClass is already relative, so the badge needs no wrapper. The
+              count is in the aria-label too - a coloured pill is not information a
+              screen reader can read. */}
+          <button type="button" onClick={() => navigate('/notifications')} className={iconButtonClass} title="Notifications" aria-label={unreadNotifications > 0 ? `Notifications, ${unreadNotifications} unread` : 'Notifications'}>
+            <Bell size={19} />
+            {unreadNotifications > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sun-primary px-1 text-[9px] font-black leading-none text-white ring-2 ring-sun-bg">
+                {unreadNotifications > 9 ? '9+' : unreadNotifications}
+              </span>
+            )}
+          </button>
           <div className="mx-1 hidden h-7 w-px bg-sun-border sm:block" />
           <button type="button" onClick={() => navigate('/profile/me')} className="ml-0.5 rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun-primary/15" title="Open profile" aria-label="Open profile"><Avatar size="md" src={profile?.avatar_url || undefined} name={profile?.full_name || profile?.username || 'My profile'} /></button>
         </nav>

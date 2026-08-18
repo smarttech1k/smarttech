@@ -4,6 +4,13 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { MobileBottomNav } from './MobileBottomNav';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
+import {
+  getCurrentUserId,
+  getUnreadNotificationCount,
+  removeNotificationSubscription,
+  subscribeToNotifications,
+} from '../../lib/notifications';
+import { useUIStore } from '../../store/uiStore';
 
 interface AppLayoutProps {
   onSignOut?: () => void;
@@ -16,6 +23,37 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ onSignOut }) => {
   const location = useLocation();
   const section = location.pathname.split('/')[1] || 'home';
   const isFullScreen = FULL_SCREEN_PAGES.has(section);
+  const setUnreadNotifications = useUIStore((state) => state.setUnreadNotifications);
+
+  // This layout is the only component mounted on every signed-in page, so it owns
+  // the one notification subscription the whole app shares - the bell and the
+  // sidebar item both badge off the count it writes to the store.
+  React.useEffect(() => {
+    let active = true;
+    let channel: ReturnType<typeof subscribeToNotifications> | null = null;
+
+    // Re-reading the count on every event rather than adjusting it locally: it is a
+    // single indexed count(*), and local arithmetic drifts the moment a block wipes
+    // several rows at once.
+    const refresh = () => {
+      void getUnreadNotificationCount()
+        .then((count) => { if (active) setUnreadNotifications(count); })
+        .catch(() => { /* a badge is not worth surfacing an error for */ });
+    };
+
+    void getCurrentUserId()
+      .then((userId) => {
+        if (!active) return;
+        refresh();
+        channel = subscribeToNotifications(userId, refresh);
+      })
+      .catch(() => { /* signed out mid-mount; ProtectedRoute handles the redirect */ });
+
+    return () => {
+      active = false;
+      void removeNotificationSubscription(channel);
+    };
+  }, [setUnreadNotifications]);
 
   const containerClass = isFullScreen
     ? 'h-full w-full'
