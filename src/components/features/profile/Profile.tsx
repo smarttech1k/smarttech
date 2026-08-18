@@ -5,6 +5,7 @@ import { ArrowRight, Ban, CalendarDays, Camera, FileText, Flag, Image as ImageIc
 import { Avatar } from '../../ui/Avatar';
 import { Button } from '../../ui/Button';
 import { BackButton } from '../../ui/BackButton';
+import { LinkedText } from '../../ui/LinkedText';
 import { supabase } from '../../../lib/supabase';
 import { listConversations, startDirectConversation } from '../../../lib/messages';
 
@@ -511,8 +512,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSettingsClick, onBac
 
                 <div className="mt-6 grid gap-5 border-t border-sun-border pt-6 lg:grid-cols-[minmax(0,1fr)_auto]">
                   <div>
-                    <p className="max-w-2xl wrap-anywhere text-sm leading-relaxed text-sun-text-main">
-                      {profile?.bio || (isOwnProfile ? 'Add a bio to introduce your work and interests.' : 'This member has not added a bio yet.')}
+                    {/* whitespace-pre-line: the bio is written in a textarea, so a
+                        link put on its own line should stay on its own line instead
+                        of being folded into the sentence above it. */}
+                    <p className="max-w-2xl whitespace-pre-line wrap-anywhere text-sm leading-relaxed text-sun-text-main">
+                      {profile?.bio
+                        ? <LinkedText text={profile.bio} />
+                        : isOwnProfile
+                          ? 'Add a bio to introduce your work and interests. Any link you write there becomes tappable.'
+                          : 'This member has not added a bio yet.'}
                     </p>
                     <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-sun-primary/8 px-3 py-1.5 text-xs font-semibold text-sun-primary"><Sparkles size={14} />Korusa member</div>
                   </div>

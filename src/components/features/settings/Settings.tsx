@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   User,
@@ -14,11 +14,13 @@ import {
   Smartphone as PhoneIcon,
   HelpCircle,
   Upload,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Avatar } from '../../ui/Avatar';
 import { BackButton } from '../../ui/BackButton';
 import { supabase } from '../../../lib/supabase';
+import { splitTextWithLinks } from '../../../lib/linkify';
 import { useNavigate } from 'react-router-dom';
 
 type SettingsSection =
@@ -54,6 +56,13 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // The links the profile will turn into anchors, read back from the draft with the
+  // same parser the profile uses - so what is listed here is exactly what will work.
+  const bioLinks = useMemo(
+    () => splitTextWithLinks(bio).flatMap((segment) => (segment.kind === 'link' ? [segment] : [])),
+    [bio],
+  );
 
   const sections = [
     { id: 'account', icon: User, label: 'Account' },
@@ -359,8 +368,31 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
                         className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-sun-primary/30 transition-all min-h-[120px] resize-none font-medium placeholder:text-sun-text-muted/30"
-                        placeholder="Tell people about yourself..."
+                        placeholder="Tell people about yourself... korusa.com"
                       />
+                      {/* Nothing about a plain textarea tells you a pasted address will
+                          work, so the hint says it - and anything recognised is echoed
+                          back below, because a link that quietly failed to register
+                          looks identical to one that worked until someone taps it. */}
+                      <p className="ml-1 text-[10px] font-medium leading-relaxed text-sun-text-muted">
+                        Write a link anywhere in here - korusa.com or https://korusa.com - and it becomes tappable on your profile.
+                      </p>
+                      {bioLinks.length > 0 && (
+                        <div className="ml-1 flex flex-wrap gap-2 pt-1">
+                          {bioLinks.map((link, index) => (
+                            <a
+                              key={`${link.href}-${index}`}
+                              href={link.href}
+                              target="_blank"
+                              rel="noopener noreferrer nofollow ugc"
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sun-primary/10 px-3 py-1 text-[10px] font-bold text-sun-primary transition-colors hover:bg-sun-primary/20"
+                            >
+                              <LinkIcon size={11} className="shrink-0" />
+                              <span className="truncate">{link.label}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-6 pt-6 border-t border-white/5">
