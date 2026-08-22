@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Plus,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Avatar } from '../../ui/Avatar';
+import { queuePostView } from '../../../lib/postViews';
 import { useNavigate } from 'react-router-dom';
 
 export const PromptBar = ({
@@ -87,6 +88,9 @@ export interface PostProps {
 
 const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v)(\?|$)/i;
 
+/** How long a post must stay half-visible before it counts as seen. */
+const VIEW_DWELL_MS = 1000;
+
 export const CommunityPost: React.FC<PostProps> = ({
   id,
   author,
@@ -102,6 +106,7 @@ export const CommunityPost: React.FC<PostProps> = ({
   onOpenProfile,
 }) => {
   const navigate = useNavigate();
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const [liked, setLiked] = useState(likedByMe);
   const [likesCount, setLikesCount] = useState(likes);
   const [commentsCount, setCommentsCount] = useState(comments);
@@ -121,6 +126,43 @@ export const CommunityPost: React.FC<PostProps> = ({
   useEffect(() => {
     setCommentsCount(comments);
   }, [comments]);
+
+  // Reach tracking for Insights. Half the card visible for a full second, counted
+  // once - that dwell requirement is the difference between "someone read this" and
+  // "this flew past during a flick to the bottom", and it is why the number on the
+  // Insights page can be called reach at all.
+  //
+  // The queue batches and dedupes; the RPC refuses self-views, so there is no
+  // author check here. The home feed is the only surface that renders real posts,
+  // so this is the single instrumentation site.
+  useEffect(() => {
+    const element = cardRef.current;
+    if (!element || typeof IntersectionObserver === 'undefined') return;
+
+    let dwell: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          if (!dwell) {
+            dwell = setTimeout(() => {
+              queuePostView(id);
+              observer.disconnect();
+            }, VIEW_DWELL_MS);
+          }
+        } else if (dwell) {
+          clearTimeout(dwell);
+          dwell = null;
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(element);
+
+    return () => {
+      if (dwell) clearTimeout(dwell);
+      observer.disconnect();
+    };
+  }, [id]);
 
   const handleLike = async () => {
     if (!onLikeToggle || isLiking) return;
@@ -165,6 +207,7 @@ export const CommunityPost: React.FC<PostProps> = ({
 
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, y: 15 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
