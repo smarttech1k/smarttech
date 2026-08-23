@@ -9,10 +9,14 @@ import {
   ThumbsUp,
   UserPlus,
   Check,
+  Maximize2,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Avatar } from '../../ui/Avatar';
+import { Modal } from '../../ui/Modal';
 import { queuePostView } from '../../../lib/postViews';
+import { formatRelativeTime } from '../../../lib/time';
+import type { FeedPost } from '../../../lib/feed';
 import { useNavigate } from 'react-router-dom';
 
 export const PromptBar = ({
@@ -88,6 +92,34 @@ export interface PostProps {
 
 const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v)(\?|$)/i;
 
+/**
+ * Maps a feed row onto this card's props.
+ *
+ * Exported because the home feed and the profile page render the same card from the same
+ * query, and two copies of this mapping would be two places for the author's bio to
+ * quietly become an invented job title again - or for a stock avatar to creep back in.
+ */
+export const feedPostToProps = (post: FeedPost): PostProps => ({
+  id: post.id,
+  author: {
+    id: post.profiles?.id || post.user_id,
+    name: post.profiles?.full_name || post.profiles?.username || 'Korusa member',
+    handle: post.profiles?.username || '',
+    // No placeholder image: Avatar renders their initials when there is no upload.
+    avatar: post.profiles?.avatar_url,
+    // The author's own bio, or nothing. Never an invented job title.
+    role: post.profiles?.bio || null,
+    isExpert: false,
+  },
+  content: post.content,
+  image: post.media_url,
+  likes: post.likeCount,
+  comments: post.commentCount,
+  commentItems: post.comments,
+  time: formatRelativeTime(post.created_at),
+  likedByMe: post.likedByMe,
+});
+
 /** How long a post must stay half-visible before it counts as seen. */
 const VIEW_DWELL_MS = 1000;
 
@@ -114,6 +146,7 @@ export const CommunityPost: React.FC<PostProps> = ({
   const [commentText, setCommentText] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [showCommentBox, setShowCommentBox] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     setLiked(likedByMe);
@@ -260,13 +293,27 @@ export const CommunityPost: React.FC<PostProps> = ({
             {isVideo ? (
               <video src={image} controls playsInline className="h-full w-full bg-black object-contain" />
             ) : (
-              <img
-                src={image}
-                className="h-full w-full bg-black object-contain"
-                alt={`Attachment shared by ${author.name}`}
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
+              // A button, not a bare <img>: the card letterboxes a portrait photo into a
+              // 16:9 box, so the only way to actually see one is to open it. Videos are
+              // left alone - wrapping <video controls> would make tapping play open a
+              // lightbox instead.
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label={`View full image shared by ${author.name}`}
+                className="group h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-sun-primary/30"
+              >
+                <img
+                  src={image}
+                  className="h-full w-full bg-black object-contain"
+                  alt={`Attachment shared by ${author.name}`}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+                <span className="pointer-events-none absolute right-2 top-2 hidden rounded-lg bg-black/50 p-1.5 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 sm:block">
+                  <Maximize2 size={14} />
+                </span>
+              </button>
             )}
           </div>
         )}
@@ -368,6 +415,24 @@ export const CommunityPost: React.FC<PostProps> = ({
           </div>
         )}
       </div>
+
+      {image && !isVideo && (
+        <Modal
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          title={`Shared by ${author.name}`}
+          subtitle={time}
+          size="xl"
+          variant="media"
+        >
+          <img
+            src={image}
+            alt={`Attachment shared by ${author.name}`}
+            className="max-h-[80dvh] w-full bg-black object-contain"
+            referrerPolicy="no-referrer"
+          />
+        </Modal>
+      )}
     </motion.div>
   );
 };

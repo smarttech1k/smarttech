@@ -26,6 +26,8 @@ import { LearningExperience } from './components/features/learning/LearningExper
 import { MessagesView } from './components/features/chat/Messages';
 import { NotificationsView } from './components/features/notifications/Notifications';
 import { ProfileView } from './components/features/profile/Profile';
+import { ProfileEditor } from './components/features/profile/ProfileEditor';
+import { FollowListView } from './components/features/profile/FollowListView';
 import { SettingsView } from './components/features/settings/Settings';
 import { CreateView } from './components/features/content/Create';
 import { ChatAssistantView } from './components/features/chat/ChatAssistant';
@@ -205,6 +207,26 @@ export default function App() {
                 onExploreClick={() => navigate('/explore')}
               />
             }
+          />
+
+          {/* Listed before profile/:id for legibility. React Router already ranks a
+              static segment above a dynamic one, so "edit" is never read as a handle. */}
+          <Route
+            path="profile/edit"
+            element={<ProfileEditor onBack={() => navigate('/profile/me')} />}
+          />
+
+          {/* Real routes rather than component state, so a refresh, a deep link and the
+              browser's own Back button all behave. As a subview these dropped you out of
+              the profile entirely. */}
+          <Route
+            path="profile/:id/followers"
+            element={<FollowListView direction="followers" />}
+          />
+
+          <Route
+            path="profile/:id/following"
+            element={<FollowListView direction="following" />}
           />
 
           <Route

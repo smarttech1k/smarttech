@@ -90,16 +90,33 @@ type RawRecentComment = {
 };
 
 export async function fetchFeed(
-  options: { scope?: FeedScope; limit?: number; cursor?: string | null; tag?: string | null } = {},
+  options: {
+    scope?: FeedScope;
+    limit?: number;
+    cursor?: string | null;
+    tag?: string | null;
+    /**
+     * Restrict the page to one author, for the profile page. Set it and the scope and
+     * tag filters stop being meaningful - a profile shows that person's posts, in order.
+     */
+    authorId?: string | null;
+  } = {},
 ): Promise<FeedPage> {
   const scope = options.scope ?? 'latest';
   const limit = options.limit ?? FEED_PAGE_SIZE;
+  const authorId = options.authorId ?? null;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: excludedRows, error: excludedError } = user
+  // A profile is a deliberate visit, so the feed's mute/block exclusions do not apply
+  // there. Two reasons: a mute is a "keep this out of my feed" preference and says
+  // nothing about a profile you navigated to on purpose, and mechanically
+  // `.eq('user_id', x)` alongside `.not('user_id','in','(x)')` returns an empty page
+  // that the UI would render as "no posts yet" - a lie about the account. A block is
+  // handled a level up, where the profile refuses to render the person at all.
+  const { data: excludedRows, error: excludedError } = user && !authorId
     ? await supabase.rpc('get_feed_excluded_user_ids')
     : { data: [], error: null };
   if (excludedError && !/get_feed_excluded_user_ids/i.test(excludedError.message)) {
@@ -110,7 +127,7 @@ export async function fetchFeed(
   // The Following scope is an explicit, honest empty when you follow nobody -
   // silently widening it back to everyone would misrepresent what you are seeing.
   let followedIds: string[] | null = null;
-  if (scope === 'following') {
+  if (scope === 'following' && !authorId) {
     if (!user) return { posts: [], currentUserId: null, nextCursor: null };
     const { data: followRows, error: followError } = await supabase
       .from('follows')
@@ -150,6 +167,9 @@ export async function fetchFeed(
 
   if (options.cursor) {
     query = query.lt('created_at', options.cursor);
+  }
+  if (authorId) {
+    query = query.eq('user_id', authorId);
   }
   if (options.tag) {
     // Tags come from get_trending_hashtags, so they are [A-Za-z0-9_] only. The

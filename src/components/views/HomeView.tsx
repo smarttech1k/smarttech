@@ -7,6 +7,7 @@ import {
   PostProps,
   PromptBar,
   TrendingTags,
+  feedPostToProps,
   type SuggestedPerson,
 } from '../features/home/HomeComponents';
 import { StoriesRail } from '../features/stories/StoriesRail';
@@ -17,13 +18,11 @@ import {
   fetchTrendingTags,
   likePost,
   unlikePost,
-  type FeedPost,
   type FeedScope,
   type ProfileRef,
   type TrendingTag,
 } from '../../lib/feed';
 import { followUser, getFriendSuggestions } from '../../lib/social';
-import { formatRelativeTime } from '../../lib/time';
 
 const SCOPES: Array<{ value: FeedScope; label: string }> = [
   { value: 'latest', label: 'Latest' },
@@ -45,27 +44,6 @@ export const HomeView = () => {
   const [peopleLoading, setPeopleLoading] = useState(true);
   const [tags, setTags] = useState<TrendingTag[]>([]);
 
-  const toPostProps = (post: FeedPost): PostProps => ({
-    id: post.id,
-    author: {
-      id: post.profiles?.id || post.user_id,
-      name: post.profiles?.full_name || post.profiles?.username || 'Korusa member',
-      handle: post.profiles?.username || '',
-      // No placeholder image: Avatar renders their initials when there is no upload.
-      avatar: post.profiles?.avatar_url,
-      // The author's own bio, or nothing. Never an invented job title.
-      role: post.profiles?.bio || null,
-      isExpert: false,
-    },
-    content: post.content,
-    image: post.media_url,
-    likes: post.likeCount,
-    comments: post.commentCount,
-    commentItems: post.comments,
-    time: formatRelativeTime(post.created_at),
-    likedByMe: post.likedByMe,
-  });
-
   const loadFeed = useCallback(async (nextScope: FeedScope, tag: string | null) => {
     try {
       setLoading(true);
@@ -73,7 +51,7 @@ export const HomeView = () => {
       const page = await fetchFeed({ scope: nextScope, tag });
       setCurrentUserId(page.currentUserId);
       setNextCursor(page.nextCursor);
-      setFeed(page.posts.map(toPostProps));
+      setFeed(page.posts.map(feedPostToProps));
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to load the feed.');
     } finally {
@@ -90,7 +68,7 @@ export const HomeView = () => {
       // Guard against a duplicate landing on the boundary if a post shares a timestamp.
       setFeed((previous) => {
         const seen = new Set(previous.map((post) => post.id));
-        return [...previous, ...page.posts.filter((post) => !seen.has(post.id)).map(toPostProps)];
+        return [...previous, ...page.posts.filter((post) => !seen.has(post.id)).map(feedPostToProps)];
       });
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not load more posts.');

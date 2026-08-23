@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   User,
@@ -6,21 +6,16 @@ import {
   Eye,
   Moon,
   ChevronRight,
-  Globe,
   Shield,
-  Smartphone,
   LogOut,
   Mail,
   Smartphone as PhoneIcon,
   HelpCircle,
-  Upload,
-  Link as LinkIcon,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Avatar } from '../../ui/Avatar';
 import { BackButton } from '../../ui/BackButton';
 import { supabase } from '../../../lib/supabase';
-import { splitTextWithLinks } from '../../../lib/linkify';
 import { useNavigate } from 'react-router-dom';
 
 type SettingsSection =
@@ -40,29 +35,15 @@ type ProfileRecord = {
 
 export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [bio, setBio] = useState('');
   const [email, setEmail] = useState('');
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-
-  // The links the profile will turn into anchors, read back from the draft with the
-  // same parser the profile uses - so what is listed here is exactly what will work.
-  const bioLinks = useMemo(
-    () => splitTextWithLinks(bio).flatMap((segment) => (segment.kind === 'link' ? [segment] : [])),
-    [bio],
-  );
 
   const sections = [
     { id: 'account', icon: User, label: 'Account' },
@@ -79,7 +60,6 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
       try {
         setLoading(true);
         setErrorMessage('');
-        setMessage('');
 
         const {
           data: { user },
@@ -100,9 +80,6 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
         if (error) throw error;
 
         setProfile(data);
-        setFullName(data.full_name || '');
-        setUsername(data.username || '');
-        setBio(data.bio || '');
       } catch (error: any) {
         setErrorMessage(error?.message || 'Failed to load profile.');
       } finally {
@@ -112,87 +89,6 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
 
     loadProfile();
   }, []);
-
-  const handleSave = async () => {
-    if (!profile) return;
-
-    try {
-      setSaving(true);
-      setErrorMessage('');
-      setMessage('');
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName.trim() || null,
-          username: username.trim() || null,
-          bio: bio.trim() || null,
-        })
-        .eq('id', profile.id);
-
-      if (error) throw error;
-
-      setProfile((prev) =>
-        prev
-          ? {
-              ...prev,
-              full_name: fullName.trim() || null,
-              username: username.trim() || null,
-              bio: bio.trim() || null,
-            }
-          : prev
-      );
-
-      setMessage('Settings updated successfully.');
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to save changes.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!profile) return;
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploadingAvatar(true);
-      setErrorMessage('');
-      setMessage('');
-
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filePath = `${profile.id}/avatar-${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          upsert: true,
-          contentType: file.type,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const avatarUrl = data.publicUrl;
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: avatarUrl })
-        .eq('id', profile.id);
-
-      if (updateError) throw updateError;
-
-      setProfile((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : prev));
-      setMessage('Avatar updated successfully.');
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to upload avatar.');
-    } finally {
-      setUploadingAvatar(false);
-      e.target.value = '';
-    }
-  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -223,15 +119,9 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
         </div>
       </header>
 
-      {(message || errorMessage) && (
-        <div
-          className={`rounded-2xl border p-4 text-sm ${
-            errorMessage
-              ? 'border-red-400/30 bg-red-500/10 text-red-400'
-              : 'border-green-400/30 bg-green-500/10 text-green-400'
-          }`}
-        >
-          {errorMessage || message}
+      {errorMessage && (
+        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-400">
+          {errorMessage}
         </div>
       )}
 
@@ -291,116 +181,45 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                   <div className="text-sm text-sun-text-muted">Loading profile...</div>
                 ) : (
                   <>
-                    <div className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-white/5">
-                      <div className="relative group">
-                        <Avatar
-                          size="xl"
-                          src={profile?.avatar_url || 'https://i.pravatar.cc/400?u=me'}
-                          className="ring-4 ring-sun-primary/20"
-                        />
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          aria-label="Change profile photo"
-                          // Visible by default, hover-only from sm up: the scrim was the
-                          // only hint that the avatar is tappable, and a touch screen
-                          // never fires hover - so on a phone the upload button worked
-                          // but nothing on screen said it was there.
-                          className="absolute inset-0 bg-black/40 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                        >
-                          <Upload size={20} className="text-white" />
-                        </button>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleAvatarUpload}
-                        />
-                      </div>
+                    {/* Everything about how you appear - photo, cover, name, handle, bio -
+                        lives at /profile/edit. This page used to hold a second copy of
+                        that form, so two screens wrote the same profiles columns and only
+                        one of them validated anything. */}
+                    <div className="flex flex-col items-center gap-5 border-b border-white/5 pb-8 sm:flex-row">
+                      {/* No placeholder service: Avatar renders their initials. This used
+                          to fall back to a stock photo of a stranger. */}
+                      <Avatar
+                        size="xl"
+                        src={profile?.avatar_url || undefined}
+                        name={profile?.full_name || profile?.username || undefined}
+                        className="ring-4 ring-sun-primary/20"
+                      />
 
-                      <div className="space-y-2 text-center sm:text-left">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="!rounded-xl px-6"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingAvatar}
-                        >
-                          {uploadingAvatar ? 'Uploading...' : 'Modify Identity'}
-                        </Button>
-                        <p className="text-[9px] text-sun-text-muted font-bold uppercase tracking-widest block">
-                          Avatar image • Max 2MB recommended
+                      <div className="min-w-0 flex-1 space-y-1 text-center sm:text-left">
+                        <h3 className="truncate text-lg font-bold">
+                          {profile?.full_name || profile?.username || 'Korusa member'}
+                        </h3>
+                        <p className="truncate text-sm text-sun-text-muted">
+                          @{profile?.username || 'member'}
                         </p>
                       </div>
+
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="!rounded-xl px-6"
+                        onClick={() => navigate('/profile/edit')}
+                      >
+                        Edit profile
+                      </Button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-sun-text-muted ml-1">
-                          Legal Registry Name
-                        </label>
-                        <input
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Joshua Wise"
-                          className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-sun-primary/30 transition-all"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-sun-text-muted ml-1">
-                          Broadcast Handle
-                        </label>
-                        <input
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="joshua_wise"
-                          className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-sun-primary/30 transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-sun-text-muted ml-1">
-                        Personal Bio-Insight
-                      </label>
-                      <textarea
-                        value={bio}
-                        onChange={(e) => setBio(e.target.value)}
-                        className="w-full bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-sun-primary/30 transition-all min-h-[120px] resize-none font-medium placeholder:text-sun-text-muted/30"
-                        placeholder="Tell people about yourself... korusa.com"
-                      />
-                      {/* Nothing about a plain textarea tells you a pasted address will
-                          work, so the hint says it - and anything recognised is echoed
-                          back below, because a link that quietly failed to register
-                          looks identical to one that worked until someone taps it. */}
-                      <p className="ml-1 text-[10px] font-medium leading-relaxed text-sun-text-muted">
-                        Write a link anywhere in here - korusa.com or https://korusa.com - and it becomes tappable on your profile.
-                      </p>
-                      {bioLinks.length > 0 && (
-                        <div className="ml-1 flex flex-wrap gap-2 pt-1">
-                          {bioLinks.map((link, index) => (
-                            <a
-                              key={`${link.href}-${index}`}
-                              href={link.href}
-                              target="_blank"
-                              rel="noopener noreferrer nofollow ugc"
-                              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-sun-primary/10 px-3 py-1 text-[10px] font-bold text-sun-primary transition-colors hover:bg-sun-primary/20"
-                            >
-                              <LinkIcon size={11} className="shrink-0" />
-                              <span className="truncate">{link.label}</span>
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-6 pt-6 border-t border-white/5">
+                    <div className="space-y-6">
                       <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-sun-primary">
-                        Relational Contact
+                        Contact
                       </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8">
-                        <div className="relative group">
+                      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8">
+                        <div className="relative">
                           <Mail
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-sun-text-muted"
                             size={16}
@@ -408,11 +227,12 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                           <input
                             value={email}
                             disabled
-                            className="w-full pl-12 bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm opacity-70"
+                            aria-label="Email address"
+                            className="w-full rounded-2xl border border-white/10 bg-white/[0.02] p-4 pl-12 text-sm opacity-70"
                           />
                         </div>
 
-                        <div className="relative group">
+                        <div className="relative">
                           <PhoneIcon
                             className="absolute left-4 top-1/2 -translate-y-1/2 text-sun-text-muted"
                             size={16}
@@ -420,7 +240,8 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
                           <input
                             value="Phone editing not wired yet"
                             disabled
-                            className="w-full pl-12 bg-white/[0.02] border border-white/10 rounded-2xl p-4 text-sm opacity-50"
+                            aria-label="Phone number"
+                            className="w-full rounded-2xl border border-white/10 bg-white/[0.02] p-4 pl-12 text-sm opacity-50"
                           />
                         </div>
                       </div>
@@ -534,30 +355,6 @@ export const SettingsView = ({ onBack }: { onBack?: () => void }) => {
               </div>
             )}
 
-            <div className="pt-8 sm:pt-10 flex flex-col sm:flex-row justify-end gap-4 border-t border-white/5">
-              <Button
-                variant="secondary"
-                className="!rounded-xl px-10 py-4 order-2 sm:order-1 text-[10px] font-black uppercase tracking-widest"
-                onClick={() => {
-                  if (profile) {
-                    setFullName(profile.full_name || '');
-                    setUsername(profile.username || '');
-                    setBio(profile.bio || '');
-                    setMessage('');
-                    setErrorMessage('');
-                  }
-                }}
-              >
-                Wipe Changes
-              </Button>
-              <Button
-                className="!rounded-xl px-12 py-4 order-1 sm:order-2 shadow-xl shadow-sun-primary/20 text-[10px] font-black uppercase tracking-widest"
-                onClick={handleSave}
-                disabled={saving || loading}
-              >
-                {saving ? 'Saving...' : 'Commit Settings'}
-              </Button>
-            </div>
           </div>
 
           <div className="mt-6 sm:mt-10 p-6 sm:p-8 glass-card rounded-[2rem] sm:rounded-[3rem] border-white/5 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
