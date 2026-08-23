@@ -462,6 +462,7 @@ export type SuggestedPerson = {
   avatar_url: string | null;
   bio?: string | null;
   follows_you?: boolean;
+  you_follow?: boolean;
 };
 
 // Replaces the old "Creator Spotlight", which ranked by signup date and wore a
@@ -472,21 +473,39 @@ export const PeopleToFollow = ({
   loading = false,
   onOpenProfile,
   onFollow,
+  onUnfollow,
 }: {
   people: SuggestedPerson[];
   loading?: boolean;
   onOpenProfile: (profileIdOrUsername: string) => void;
   onFollow: (userId: string) => Promise<void> | void;
+  onUnfollow?: (userId: string) => Promise<void> | void;
 }) => {
   const [pending, setPending] = useState<string | null>(null);
-  const [followed, setFollowed] = useState<Set<string>>(new Set());
+  /**
+   * Only the rows changed since the last fetch. The button state itself comes from
+   * `person.you_follow`, which get_friend_suggestions has always returned - this used to
+   * be a Set seeded empty and filled purely by clicks, so anybody already followed
+   * rendered "Follow" until the page was reloaded.
+   */
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
-  const handleFollow = async (userId: string) => {
+  // A fresh page from the server is the truth again, so local overrides are dropped
+  // rather than left to shadow it.
+  useEffect(() => {
+    setOverrides({});
+  }, [people]);
+
+  const handleToggle = async (person: SuggestedPerson, currentlyFollowing: boolean) => {
     if (pending) return;
-    setPending(userId);
+    if (currentlyFollowing && !onUnfollow) return;
+    setPending(person.id);
+    setOverrides((previous) => ({ ...previous, [person.id]: !currentlyFollowing }));
     try {
-      await onFollow(userId);
-      setFollowed((previous) => new Set(previous).add(userId));
+      if (currentlyFollowing) await onUnfollow?.(person.id);
+      else await onFollow(person.id);
+    } catch {
+      setOverrides((previous) => ({ ...previous, [person.id]: currentlyFollowing }));
     } finally {
       setPending(null);
     }
@@ -511,7 +530,7 @@ export const PeopleToFollow = ({
             ))
           : people.map((person) => {
               const name = person.full_name || person.username || 'Korusa member';
-              const isFollowed = followed.has(person.id);
+              const isFollowing = overrides[person.id] ?? !!person.you_follow;
               return (
                 <div
                   key={person.id}
@@ -532,8 +551,10 @@ export const PeopleToFollow = ({
                           @{person.username}
                         </span>
                       )}
-                      {/* Only shown when it is a real signal from the database. */}
-                      {person.follows_you && (
+                      {/* Only shown when it is a real signal from the database, and only
+                          while it is still actionable - once you follow back, the pair are
+                          friends and the label has nothing left to tell you. */}
+                      {person.follows_you && !isFollowing && (
                         <span className="mt-0.5 block text-[10px] font-semibold text-sun-primary">
                           Follows you
                         </span>
@@ -543,16 +564,19 @@ export const PeopleToFollow = ({
 
                   <button
                     type="button"
-                    onClick={() => void handleFollow(person.id)}
-                    disabled={isFollowed || pending === person.id}
+                    onClick={() => void handleToggle(person, isFollowing)}
+                    // Without onUnfollow there is nothing a second press can do, so the
+                    // button says so rather than looking live and swallowing the tap.
+                    disabled={pending === person.id || (isFollowing && !onUnfollow)}
+                    title={isFollowing ? `Unfollow ${name}` : `Follow ${name}`}
                     className={`flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[9px] font-black uppercase tracking-wider transition-colors ${
-                      isFollowed
-                        ? 'border border-sun-border text-sun-text-muted'
-                        : 'bg-sun-primary text-white hover:bg-sun-primary/90'
+                      isFollowing
+                        ? 'border border-sun-border text-sun-text-muted hover:border-sun-primary/35'
+                        : 'bg-sun-primary text-white hover:bg-[#5b21b6]'
                     } ${pending === person.id ? 'opacity-60' : ''}`}
                   >
-                    {isFollowed ? <Check size={11} /> : <UserPlus size={11} />}
-                    {isFollowed ? 'Following' : 'Follow'}
+                    {isFollowing ? <Check size={11} /> : <UserPlus size={11} />}
+                    {isFollowing ? 'Following' : person.follows_you ? 'Follow back' : 'Follow'}
                   </button>
                 </div>
               );

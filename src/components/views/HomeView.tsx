@@ -22,7 +22,7 @@ import {
   type ProfileRef,
   type TrendingTag,
 } from '../../lib/feed';
-import { followUser, getFriendSuggestions } from '../../lib/social';
+import { followUser, getFriendSuggestions, unfollowUser } from '../../lib/social';
 
 const SCOPES: Array<{ value: FeedScope; label: string }> = [
   { value: 'latest', label: 'Latest' },
@@ -236,6 +236,9 @@ export const HomeView = () => {
             onOpenProfile={openProfile}
             onFollow={async (userId) => {
               await followUser(userId);
+            }}
+            onUnfollow={async (userId) => {
+              await unfollowUser(userId);
             }}
           />
           <TrendingTags tags={tags} onSelect={setActiveTag} />
